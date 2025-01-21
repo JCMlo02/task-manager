@@ -32,7 +32,6 @@ jobs:
       - name: Install Docker
         run: |
           sudo apt-get update
-          sudo apt-get install docker.io
 
       # Step 5: Log in to Amazon ECR
       - name: Log in to Amazon ECR
