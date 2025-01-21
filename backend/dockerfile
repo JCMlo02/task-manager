@@ -1,0 +1,23 @@
+# Builder stage: Use the base Python 3.8 Lambda image
+FROM public.ecr.aws/lambda/python:3.8 as builder
+
+# Set the working directory for the build stage
+WORKDIR /usr/app
+
+# Copy the requirements.txt file separately to leverage Docker cache
+COPY requirements.txt ./
+
+# Install Python dependencies in the builder image
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Production stage: Use the same Python 3.8 Lambda image for the production environment
+FROM public.ecr.aws/lambda/python:3.8
+
+# Set the working directory for the Lambda container
+WORKDIR ${LAMBDA_TASK_ROOT}
+
+# Copy the Lambda handler and any required code
+COPY --from=builder /usr/app /usr/app
+
+# Set the handler function for Lambda (e.g., app.handler)
+CMD ["app.lambda_handler"]
