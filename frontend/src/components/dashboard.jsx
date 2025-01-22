@@ -30,12 +30,18 @@ const Dashboard = ({ userPool }) => {
         setUser(currentUser);
         let sub = session.getIdToken().payload.sub;
         setSub(sub);
-        fetchProjects();
+        console.log(sub);
       });
     } else {
       history("/"); // Redirect to home page if no user is logged in
     }
   }, [userPool, history]);
+
+  useEffect(() => {
+    if (sub) {
+      fetchProjects(); // Call API only when sub is available
+    }
+  }, [sub]); // Fetch when 'sub' changes
 
   const fetchProjects = async () => {
     try {
