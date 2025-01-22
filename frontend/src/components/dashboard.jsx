@@ -46,7 +46,11 @@ const Dashboard = ({ userPool }) => {
   const fetchProjects = async () => {
     try {
       const response = await fetch(
-        `https://9ehr6i4dpi.execute-api.us-east-1.amazonaws.com/dev/projects?userId=${sub}`
+        `https://9ehr6i4dpi.execute-api.us-east-1.amazonaws.com/dev/projects?userId=${sub}`,
+        {
+          method: "GET",
+          headers: { "Content-Type": "application/json" },
+        }
       );
       const data = await response.json();
       setProjects(data.projects);

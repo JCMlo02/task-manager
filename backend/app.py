@@ -1,5 +1,10 @@
 import json
 from functions.helpers import create_project, get_projects, update_project, delete_project, create_task, get_tasks, update_task, delete_task
+headers = {
+    'Access-Control-Allow-Origin': '*',
+    'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
+    'Access-Control-Allow-Headers': 'Content-Type, X-Amz-Date, Authorization, X-Api-Key'
+}
 
 def lambda_handler(event, context):
     method = event['httpMethod']
@@ -33,5 +38,6 @@ def lambda_handler(event, context):
 
     return {
         'statusCode': 400,
-        'body': json.dumps('Invalid request')
+        'body': json.dumps('Invalid request'),
+        'headers': headers
     }
