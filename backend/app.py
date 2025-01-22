@@ -4,7 +4,8 @@ from functions.helpers import create_project, get_projects, update_project, dele
 def lambda_handler(event, context):
     method = event['httpMethod']
     path = event['resource']
-    user_id = event['body']['userId']  # Cognito User ID
+    body = json.loads(event['body'])
+    user_id = body['userId']# Cognito User ID
     
     # Handle CRUD for Projects
     if path == '/projects':
