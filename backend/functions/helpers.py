@@ -8,7 +8,11 @@ dynamodb = boto3.resource('dynamodb')
 project_table = dynamodb.Table('Projects')
 task_table = dynamodb.Table('Tasks')
 # ------------------------- Task CRUD Functions --------------------------
-
+headers = {
+                'Access-Control-Allow-Origin': '*',
+                'Access-Control-Allow-Methods': 'GET',
+                'Access-Control-Allow-Headers': 'Content-Type,X-Amz-Date,Authorization,X-Api-Key'
+            }
 def create_task(event, user_id):
     body = json.loads(event['body'])
     task_id = str(uuid4())  # Generate unique task ID
@@ -29,6 +33,7 @@ def create_task(event, user_id):
     return {
         'statusCode': 201,
         'body': json.dumps({'task_id': task_id}),
+        'headers': headers
     }
 
 def get_tasks(event, user_id):
@@ -38,7 +43,8 @@ def get_tasks(event, user_id):
     if not project_id:
         return {
             'statusCode': 400,
-            'body': json.dumps('Missing project_id query parameter')
+            'body': json.dumps('Missing project_id query parameter'),
+            'headers': headers
         }
 
 
@@ -50,6 +56,7 @@ def get_tasks(event, user_id):
     return {
         'statusCode': 200,
         'body': json.dumps(response['Items']),
+        'headers': headers
     }
 
 
@@ -66,7 +73,8 @@ def update_task(event, user_id):
     if 'Item' not in response:
         return {
             'statusCode': 404,
-            'body': json.dumps('Task not found')
+            'body': json.dumps('Task not found'),
+            'headers': headers
         }
 
     task_table.update_item(
@@ -86,6 +94,7 @@ def update_task(event, user_id):
     return {
         'statusCode': 200,
         'body': json.dumps({'message': 'Task updated successfully'}),
+        'headers': headers
     }
 
 def delete_task(event, user_id):
@@ -110,6 +119,7 @@ def delete_task(event, user_id):
     return {
         'statusCode': 200,
         'body': json.dumps({'message': 'Task deleted successfully'}),
+        'headers': headers
     }
 
 # ------------------------- Project CRUD Functions --------------------------
@@ -128,6 +138,7 @@ def create_project(event, user_id):
     return {
         'statusCode': 201,
         'body': json.dumps({'project_id': project_id}),
+        'headers': headers
     }
 
 def get_projects(user_id):
@@ -138,6 +149,7 @@ def get_projects(user_id):
     return {
         'statusCode': 200,
         'body': json.dumps(response['Items']),
+        'headers': headers
     }
 
 def update_project(event, user_id):
@@ -152,6 +164,7 @@ def update_project(event, user_id):
     return {
         'statusCode': 200,
         'body': json.dumps({'message': 'Project updated successfully'}),
+        'headers': headers
     }
 
 def delete_project(event, user_id):
@@ -162,4 +175,5 @@ def delete_project(event, user_id):
     return {
         'statusCode': 200,
         'body': json.dumps({'message': 'Project deleted successfully'}),
+        'headers': headers
     }
