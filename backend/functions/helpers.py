@@ -8,11 +8,7 @@ dynamodb = boto3.resource('dynamodb')
 project_table = dynamodb.Table('Projects')
 task_table = dynamodb.Table('Tasks')
 # ------------------------- Task CRUD Functions --------------------------
-headers = {
-    'Access-Control-Allow-Origin': '*',
-    'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, PATCH, HEAD, OPTIONS',
-    'Access-Control-Allow-Headers': 'Content-Type, X-Amz-Date, Authorization, X-Api-Key'
-}
+
 def create_task(event, user_id):
     body = json.loads(event['body'])
     task_id = str(uuid4())  # Generate unique task ID
@@ -31,7 +27,7 @@ def create_task(event, user_id):
     )
 
     return {
-        'statusCode': 201,
+        'statusCode': 200,
         'body': json.dumps({'task_id': task_id}),
         'headers': {
             'Access-Control-Allow-Headers': 'Content-Type',

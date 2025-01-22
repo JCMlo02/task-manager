@@ -1,17 +1,12 @@
 import json
 from functions.helpers import create_project, get_projects, update_project, delete_project, create_task, get_tasks, update_task, delete_task
-headers = {
-    'Access-Control-Allow-Origin': '*',
-    'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
-    'Access-Control-Allow-Headers': 'Content-Type, X-Amz-Date, Authorization, X-Api-Key'
-}
 
 def lambda_handler(event, context):
     method = event['httpMethod']
     path = event['resource']
     body = json.loads(event['body'])
-    user_id = body['userId']# Cognito User ID
-    user_id_get = event['queryStringParameters'].get('userId')
+    user_id = body.get('userId', None)# Cognito User ID
+    user_id_get = event['queryStringParameters'].get('userId', None)# Cognito User ID
     
     # Handle CRUD for Projects
     if path == '/projects':
