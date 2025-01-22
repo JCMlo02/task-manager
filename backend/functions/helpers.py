@@ -10,7 +10,7 @@ task_table = dynamodb.Table('Tasks')
 # ------------------------- Task CRUD Functions --------------------------
 headers = {
                 'Access-Control-Allow-Origin': '*',
-                'Access-Control-Allow-Methods': 'GET',
+                'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
                 'Access-Control-Allow-Headers': 'Content-Type,X-Amz-Date,Authorization,X-Api-Key'
             }
 def create_task(event, user_id):
