@@ -6,6 +6,7 @@ const Dashboard = ({ userPool }) => {
   const [user, setUser] = useState(null);
   const [projects, setProjects] = useState([]);
   const [error, setError] = useState(null);
+  const [sub, setSub] = useState(null);
 
   const [newProjectName, setNewProjectName] = useState("");
   const [newProjectDescription, setNewProjectDescription] = useState("");
@@ -27,6 +28,8 @@ const Dashboard = ({ userPool }) => {
           return;
         }
         setUser(currentUser);
+        let sub = session.getIdToken().payload.sub;
+        setSub(sub);
         fetchProjects();
       });
     } else {
@@ -61,6 +64,7 @@ const Dashboard = ({ userPool }) => {
         body: JSON.stringify({
           name: newProjectName,
           description: newProjectDescription,
+          userId: sub,
         }),
       });
 
@@ -106,7 +110,7 @@ const Dashboard = ({ userPool }) => {
 
           {error && (
             <div className="text-red-500 mt-4 text-center">
-              <p>{error}</p>
+              <p></p>
             </div>
           )}
 
