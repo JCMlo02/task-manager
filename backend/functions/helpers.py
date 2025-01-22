@@ -33,7 +33,11 @@ def create_task(event, user_id):
     return {
         'statusCode': 201,
         'body': json.dumps({'task_id': task_id}),
-        'headers': headers
+        'headers': {
+            'Access-Control-Allow-Headers': 'Content-Type',
+            'Access-Control-Allow-Origin': '*',
+            'Access-Control-Allow-Methods': '*'
+        },
     }
 
 def get_tasks(event, user_id):
@@ -44,7 +48,11 @@ def get_tasks(event, user_id):
         return {
             'statusCode': 400,
             'body': json.dumps('Missing project_id query parameter'),
-            'headers': headers
+            'headers': {
+                'Access-Control-Allow-Headers': 'Content-Type',
+                'Access-Control-Allow-Origin': '*',
+                'Access-Control-Allow-Methods': '*'
+            },
         }
 
 
@@ -56,7 +64,11 @@ def get_tasks(event, user_id):
     return {
         'statusCode': 200,
         'body': json.dumps(response['Items']),
-        'headers': headers
+        'headers': {
+            'Access-Control-Allow-Headers': 'Content-Type',
+            'Access-Control-Allow-Origin': '*',
+            'Access-Control-Allow-Methods': '*'
+        },
     }
 
 
@@ -74,7 +86,11 @@ def update_task(event, user_id):
         return {
             'statusCode': 404,
             'body': json.dumps('Task not found'),
-            'headers': headers
+            'headers': {
+                'Access-Control-Allow-Headers': 'Content-Type',
+                'Access-Control-Allow-Origin': '*',
+                'Access-Control-Allow-Methods': '*'
+            },
         }
 
     task_table.update_item(
@@ -94,7 +110,11 @@ def update_task(event, user_id):
     return {
         'statusCode': 200,
         'body': json.dumps({'message': 'Task updated successfully'}),
-        'headers': headers
+        'headers': {
+            'Access-Control-Allow-Headers': 'Content-Type',
+            'Access-Control-Allow-Origin': '*',
+            'Access-Control-Allow-Methods': '*'
+        },
     }
 
 def delete_task(event, user_id):
@@ -110,7 +130,11 @@ def delete_task(event, user_id):
         return {
             'statusCode': 404,
             'body': json.dumps('Task not found'),
-            'headers': headers
+            'headers': {
+                'Access-Control-Allow-Headers': 'Content-Type',
+                'Access-Control-Allow-Origin': '*',
+                'Access-Control-Allow-Methods': '*'
+            },
         }
 
     task_table.delete_item(
@@ -120,7 +144,11 @@ def delete_task(event, user_id):
     return {
         'statusCode': 200,
         'body': json.dumps({'message': 'Task deleted successfully'}),
-        'headers': headers
+        'headers': {
+            'Access-Control-Allow-Headers': 'Content-Type',
+            'Access-Control-Allow-Origin': '*',
+            'Access-Control-Allow-Methods': '*'
+        },
     }
 
 # ------------------------- Project CRUD Functions --------------------------
@@ -137,9 +165,13 @@ def create_project(event, user_id):
         }
     )
     return {
-        'statusCode': 201,
+        'statusCode': 200,
         'body': json.dumps({'project_id': project_id}),
-        'headers': headers
+        'headers': {
+            'Access-Control-Allow-Headers': 'Content-Type',
+            'Access-Control-Allow-Origin': '*',
+            'Access-Control-Allow-Methods': '*'
+        },
     }
 
 def get_projects(user_id):
@@ -150,7 +182,11 @@ def get_projects(user_id):
     return {
         'statusCode': 200,
         'body': json.dumps(response['Items']),
-        'headers': headers
+        'headers': {
+            'Access-Control-Allow-Headers': 'Content-Type',
+            'Access-Control-Allow-Origin': '*',
+            'Access-Control-Allow-Methods': '*'
+        },
     }
 
 def update_project(event, user_id):
@@ -165,7 +201,11 @@ def update_project(event, user_id):
     return {
         'statusCode': 200,
         'body': json.dumps({'message': 'Project updated successfully'}),
-        'headers': headers
+        'headers': {
+            'Access-Control-Allow-Headers': 'Content-Type',
+            'Access-Control-Allow-Origin': '*',
+            'Access-Control-Allow-Methods': '*'
+        },
     }
 
 def delete_project(event, user_id):
@@ -176,5 +216,9 @@ def delete_project(event, user_id):
     return {
         'statusCode': 200,
         'body': json.dumps({'message': 'Project deleted successfully'}),
-        'headers': headers
+        'headers': {
+            'Access-Control-Allow-Headers': 'Content-Type',
+            'Access-Control-Allow-Origin': '*',
+            'Access-Control-Allow-Methods': '*'
+        },
     }
