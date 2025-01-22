@@ -1,5 +1,5 @@
 import json
-from functions.helpers import create_project, get_projects, update_project, delete_project, create_task, get_tasks, update_task, delete_task, join_project
+from functions.helpers import create_project, get_projects, update_project, delete_project, create_task, get_tasks, update_task, delete_task
 
 def lambda_handler(event, context):
     method = event['httpMethod']
