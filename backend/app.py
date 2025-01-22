@@ -6,13 +6,14 @@ def lambda_handler(event, context):
     path = event['resource']
     body = json.loads(event['body'])
     user_id = body['userId']# Cognito User ID
+    user_id_get = event['queryStringParameters'].get('userId')
     
     # Handle CRUD for Projects
     if path == '/projects':
         if method == 'POST':
             return create_project(event, user_id)
         elif method == 'GET':
-            return get_projects(user_id)
+            return get_projects(user_id_get)
         elif method == 'PUT':
             return update_project(event, user_id)
         elif method == 'DELETE':
@@ -23,7 +24,7 @@ def lambda_handler(event, context):
         if method == 'POST':
             return create_task(event, user_id)
         elif method == 'GET':
-            return get_tasks(event, user_id)
+            return get_tasks(event, user_id_get)
         elif method == 'PUT':
             return update_task(event, user_id)
         elif method == 'DELETE':
