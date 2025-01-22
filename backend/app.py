@@ -1,10 +1,10 @@
 import json
-from functions.helpers import create_project, get_projects, update_project, delete_project, create_task, get_tasks, update_task, delete_task
+from functions.helpers import create_project, get_projects, update_project, delete_project, create_task, get_tasks, update_task, delete_task, join_project
 
 def lambda_handler(event, context):
     method = event['httpMethod']
     path = event['resource']
-    user_id = event['requestContext']['authorizer']['claims']['sub']  # Cognito User ID
+    user_id = event['body']['userId']  # Cognito User ID
     
     # Handle CRUD for Projects
     if path == '/projects':
@@ -27,6 +27,7 @@ def lambda_handler(event, context):
             return update_task(event, user_id)
         elif method == 'DELETE':
             return delete_task(event, user_id)
+
 
     return {
         'statusCode': 400,

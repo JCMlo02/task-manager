@@ -63,3 +63,19 @@ resource "aws_api_gateway_deployment" "task_manager_api_deployment" {
     aws_api_gateway_integration.lambda_integration_tasks
   ]
 }
+
+resource "aws_api_gateway_rest_api_policy" "task_manager_api_policy" {
+  rest_api_id = aws_api_gateway_rest_api.task_manager_api.id
+
+  policy = jsonencode({
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Effect": "Allow",
+      "Principal": "*",
+      "Action": "execute-api:Invoke",
+      "Resource": "arn:aws:execute-api:us-east-1:788228759732:9ehr6i4dpi/*"
+    }
+  ]
+})
+}
