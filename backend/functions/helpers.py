@@ -2,6 +2,7 @@ import json
 import boto3
 from uuid import uuid4
 from botocore.exceptions import ClientError
+from boto3.dynamodb.conditions import Key
 
 dynamodb = boto3.resource('dynamodb')
 project_table = dynamodb.Table('Projects')
@@ -31,6 +32,7 @@ def create_task(event, user_id):
     }
 
 def get_tasks(event, user_id):
+    # Extract the project_id from query string parameters
     project_id = event.get('queryStringParameters', {}).get('project_id', None)
     
     if not project_id:
@@ -39,18 +41,17 @@ def get_tasks(event, user_id):
             'body': json.dumps('Missing project_id query parameter')
         }
 
+
     response = task_table.query(
-        KeyConditionExpression="project_id = :project_id AND user_id = :user_id",
-        ExpressionAttributeValues={
-            ":project_id": project_id,
-            ":user_id": user_id
-        }
+        IndexName='user_id-index',
+        KeyConditionExpression=Key('user_id').eq(user_id) & Key('project_id').eq(project_id)
     )
 
     return {
         'statusCode': 200,
         'body': json.dumps(response['Items']),
     }
+
 
 def update_task(event, user_id):
     body = json.loads(event['body'])
@@ -131,9 +132,9 @@ def create_project(event, user_id):
 
 def get_projects(user_id):
     response = project_table.query(
-        KeyConditionExpression="user_id = :user_id",
-        ExpressionAttributeValues={":user_id": user_id}
+        KeyConditionExpression=Key('user_id').eq(user_id)
     )
+    
     return {
         'statusCode': 200,
         'body': json.dumps(response['Items']),
