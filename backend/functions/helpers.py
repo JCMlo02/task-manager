@@ -1,6 +1,7 @@
 import json
 import boto3
 from uuid import uuid4
+from botocore.exceptions import ClientError
 
 dynamodb = boto3.resource('dynamodb')
 project_table = dynamodb.Table('Projects')
