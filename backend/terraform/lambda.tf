@@ -2,8 +2,9 @@ resource "aws_lambda_function" "task_manager_lambda" {
   function_name = "task-manager-lambda"
 
   package_type = "Image"
-
-  image_uri     = "${aws_ecr_repository.lambda_repo.repository_url}:latest"
+  
+  # This will change whenever the image_uri changes (new ECR image)
+  image_uri    = "${aws_ecr_repository.lambda_repo.repository_url}:latest"
 
   environment {
     variables = {
@@ -13,6 +14,17 @@ resource "aws_lambda_function" "task_manager_lambda" {
   }
 
   role = aws_iam_role.lambda_role.arn
+
+  timeout = 60  # Set timeout to 1 minute
+}
+
+resource "aws_lambda_permission" "allow_api_gateway" {
+  statement_id  = "AllowAPIGatewayInvoke"
+  action        = "lambda:InvokeFunction"
+  principal     = "*"
+  function_name = aws_lambda_function.task_manager_lambda.function_name
+  source_arn    = "${aws_api_gateway_rest_api.task_manager_api.execution_arn}/*"
+  depends_on = [aws_lambda_function.task_manager_lambda]
 }
 
 resource "aws_iam_role" "lambda_role" {
@@ -56,12 +68,3 @@ resource "aws_iam_policy_attachment" "lambda_policy_attachment" {
   policy_arn = aws_iam_policy.lambda_policy.arn
   roles      = [aws_iam_role.lambda_role.name]
 }
-
-resource "aws_lambda_permission" "allow_api_gateway" {
-  statement_id  = "AllowAPIGatewayInvoke"
-  action        = "lambda:InvokeFunction"
-  principal     = "*"
-  function_name = aws_lambda_function.task_manager_lambda.function_name
-  source_arn    = "${aws_api_gateway_rest_api.task_manager_api.execution_arn}/*"
-  depends_on = [aws_lambda_function.task_manager_lambda]
-} 

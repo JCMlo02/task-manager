@@ -60,7 +60,8 @@ resource "aws_api_gateway_deployment" "task_manager_api_deployment" {
 
   depends_on = [
     aws_api_gateway_integration.lambda_integration_projects,
-    aws_api_gateway_integration.lambda_integration_tasks
+    aws_api_gateway_integration.lambda_integration_tasks,
+    aws_lambda_function.task_manager_lambda  # This forces redeployment when Lambda changes
   ]
 }
 
