@@ -30,7 +30,6 @@ const Dashboard = ({ userPool }) => {
         setUser(currentUser);
         let sub = session.getIdToken().payload.sub;
         setSub(sub);
-        console.log(sub);
       });
     } else {
       history("/"); // Redirect to home page if no user is logged in
@@ -53,7 +52,8 @@ const Dashboard = ({ userPool }) => {
         }
       );
       const data = await response.json();
-      setProjects(data.projects);
+      if (data) setProjects(data);
+      setProjects([]);
     } catch (err) {
       setError(err.message || "");
     }
@@ -82,7 +82,7 @@ const Dashboard = ({ userPool }) => {
           }),
         }
       );
-
+      console.log(response);
       if (!response.ok) {
         throw new Error("Failed to create project");
       }
