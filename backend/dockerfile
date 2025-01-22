@@ -16,8 +16,12 @@ FROM public.ecr.aws/lambda/python:3.8
 # Set the working directory for the Lambda container
 WORKDIR ${LAMBDA_TASK_ROOT}
 
-# Copy the Lambda handler and any required code
+# Copy the Lambda handler (app.py) and the functions directory to the Lambda task root
+COPY app.py ${LAMBDA_TASK_ROOT}/app.py
+COPY functions ${LAMBDA_TASK_ROOT}/functions
+
+# Install Python dependencies
 COPY --from=builder /usr/app /usr/app
 
-# Set the handler function for Lambda (e.g., app.handler)
+# Set the Lambda handler to point to `app.lambda_handler`
 CMD ["app.lambda_handler"]
