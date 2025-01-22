@@ -15,12 +15,6 @@ resource "aws_api_gateway_resource" "tasks" {
   path_part   = "tasks"
 }
 
-resource "aws_api_gateway_resource" "join" {
-  rest_api_id = aws_api_gateway_rest_api.task_manager_api.id
-  parent_id   = aws_api_gateway_rest_api.task_manager_api.root_resource_id
-  path_part   = "join"
-}
-
 # Define the ANY method for /projects
 resource "aws_api_gateway_method" "any_method_projects" {
   rest_api_id   = aws_api_gateway_rest_api.task_manager_api.id
@@ -33,13 +27,6 @@ resource "aws_api_gateway_method" "any_method_projects" {
 
 # Define the ANY method for /tasks
 resource "aws_api_gateway_method" "any_method_tasks" {
-  rest_api_id   = aws_api_gateway_rest_api.task_manager_api.id
-  resource_id   = aws_api_gateway_resource.tasks.id
-  http_method   = "ANY"
-  authorization = "NONE"
-}
-
-resource "aws_api_gateway_method" "any_method_join" {
   rest_api_id   = aws_api_gateway_rest_api.task_manager_api.id
   resource_id   = aws_api_gateway_resource.tasks.id
   http_method   = "ANY"

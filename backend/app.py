@@ -27,9 +27,6 @@ def lambda_handler(event, context):
             return update_task(event, user_id)
         elif method == 'DELETE':
             return delete_task(event, user_id)
-    elif path == '/join':
-        if method == 'POST':
-            return join_project(event, user_id)
 
 
     return {
