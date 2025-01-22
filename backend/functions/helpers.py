@@ -2,6 +2,7 @@ import json
 import boto3
 from uuid import uuid4
 from botocore.exceptions import ClientError
+from boto3.dynamodb.conditions import Key
 
 dynamodb = boto3.resource('dynamodb')
 project_table = dynamodb.Table('Projects')
@@ -131,9 +132,9 @@ def create_project(event, user_id):
 
 def get_projects(user_id):
     response = project_table.query(
-        KeyConditionExpression="user_id = :user_id",
-        ExpressionAttributeValues={":user_id": user_id}
+        KeyConditionExpression=Key('user_id').eq(user_id)
     )
+    
     return {
         'statusCode': 200,
         'body': json.dumps(response['Items']),
