@@ -30,16 +30,24 @@ const Dashboard = ({ userPool }) => {
         setUser(currentUser);
         let sub = session.getIdToken().payload.sub;
         setSub(sub);
-        fetchProjects();
+        console.log(sub);
       });
     } else {
       history("/"); // Redirect to home page if no user is logged in
     }
   }, [userPool, history]);
 
+  useEffect(() => {
+    if (sub) {
+      fetchProjects(); // Call API only when sub is available
+    }
+  }, [sub]); // Fetch when 'sub' changes
+
   const fetchProjects = async () => {
     try {
-      const response = await fetch("/api/projects");
+      const response = await fetch(
+        `https://9ehr6i4dpi.execute-api.us-east-1.amazonaws.com/dev/projects?userId=${sub}`
+      );
       const data = await response.json();
       setProjects(data.projects);
     } catch (err) {
@@ -56,17 +64,20 @@ const Dashboard = ({ userPool }) => {
     }
 
     try {
-      const response = await fetch("/api/projects", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          name: newProjectName,
-          description: newProjectDescription,
-          userId: sub,
-        }),
-      });
+      const response = await fetch(
+        "https://9ehr6i4dpi.execute-api.us-east-1.amazonaws.com/dev/projects",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            name: newProjectName,
+            description: newProjectDescription,
+            userId: sub,
+          }),
+        }
+      );
 
       if (!response.ok) {
         throw new Error("Failed to create project");
