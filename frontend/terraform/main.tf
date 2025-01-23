@@ -1,14 +1,11 @@
+
 terraform {
-  required_providers {
-    aws = {
-      source  = "hashicorp/aws"
-      version = "~> 4.0"
-    }
-  }
   backend "s3" {
-    bucket = "tikitask-taskmanager"
-    key    = "frontend/tikitask.tfstate"
-    region = "us-east-1"
+    bucket         = "tikitask-taskmanager"
+    key            = "terraform.tfstate"
+    region         = "us-east-1"
+    encrypt        = true
+    acl            = "private"
   }
 }
 
