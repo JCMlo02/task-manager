@@ -354,7 +354,9 @@ const Dashboard = ({ userPool }) => {
         });
 
         if (!response.ok)
-          throw new Error(`Failed to ${isUpdate ? "update" : "create"} project`);
+          throw new Error(
+            `Failed to ${isUpdate ? "update" : "create"} project`
+          );
         const data = await response.json();
 
         if (isUpdate) {
@@ -681,25 +683,25 @@ const Dashboard = ({ userPool }) => {
       [TASK_STATUSES.IN_TESTING]: [],
       [TASK_STATUSES.DONE]: [],
     };
-  
-    tasks.forEach(task => {
+
+    tasks.forEach((task) => {
       // Ensure task has a valid status or default to BACKLOG
-      const status = Object.values(TASK_STATUSES).includes(task.status) 
-        ? task.status 
+      const status = Object.values(TASK_STATUSES).includes(task.status)
+        ? task.status
         : TASK_STATUSES.BACKLOG;
-      
+
       sorted[status].push(task);
     });
-  
+
     // Sort each status group by updated_at or created_at
-    Object.keys(sorted).forEach(status => {
+    Object.keys(sorted).forEach((status) => {
       sorted[status].sort((a, b) => {
         const dateA = new Date(a.updated_at || a.created_at);
         const dateB = new Date(b.updated_at || b.created_at);
         return dateB - dateA; // Most recent first
       });
     });
-  
+
     return sorted;
   };
 
@@ -999,8 +1001,7 @@ const Dashboard = ({ userPool }) => {
                                                     newTaskName: task.name,
                                                     newTaskDescription:
                                                       task.description,
-                                                    assignedTo:
-                                                      task.assignedTo,
+                                                    assignedTo: task.assignedTo,
                                                   });
                                                   setModalState({
                                                     ...modalState,
@@ -1014,8 +1015,7 @@ const Dashboard = ({ userPool }) => {
                                                 onClick={() => {
                                                   setSelectedIds({
                                                     ...selectedIds,
-                                                    taskToDelete:
-                                                      task.task_id,
+                                                    taskToDelete: task.task_id,
                                                   });
                                                   setModalState({
                                                     ...modalState,
