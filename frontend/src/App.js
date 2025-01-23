@@ -5,6 +5,8 @@ import Login from "./components/login";
 import Register from "./components/register";
 import Dashboard from "./components/dashboard";
 import HomePage from "./components/home";
+import About from "./components/About";
+import Features from "./components/Features";
 
 const App = ({ userPool }) => {
   return (
@@ -14,6 +16,8 @@ const App = ({ userPool }) => {
         <Route path="/login" element={<Login userPool={userPool} />} />
         <Route path="/register" element={<Register userPool={userPool} />} />
         <Route path="/dashboard" element={<Dashboard userPool={userPool} />} />
+        <Route path="/about" element={<About userPool={userPool} />} />
+        <Route path="/features" element={<Features userPool={userPool} />} />
       </Routes>
     </Router>
   );
