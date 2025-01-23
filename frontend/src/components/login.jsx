@@ -58,7 +58,7 @@ const Login = ({ userPool }) => {
     <motion.div
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
-      className={`min-h-screen flex flex-col ${
+      className={`min-h-screen ${
         isDarkMode
           ? "bg-gray-800 text-white"
           : "bg-gradient-to-br from-teal-400 to-yellow-300"
@@ -70,14 +70,14 @@ const Login = ({ userPool }) => {
       <motion.div 
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
-        className="flex items-center justify-center flex-grow p-4"
+        className="flex items-center justify-center min-h-screen pt-16 pb-12 px-4"
       >
         <motion.div
           initial={{ scale: 0.9 }}
           animate={{ scale: 1 }}
-          className="w-full max-w-md p-8 bg-white/90 backdrop-blur-sm rounded-xl shadow-2xl"
+          className="w-full max-w-md p-8 my-8 bg-white/90 backdrop-blur-sm rounded-xl shadow-2xl border-4 border-teal-600"
         >
-          <div className="text-center">
+          <div className="text-center mb-8">  {/* Added mb-8 to match register */}
             <a href="/">
               <img
                 src={Logo}

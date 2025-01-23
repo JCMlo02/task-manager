@@ -72,12 +72,12 @@ const Register = ({ userPool }) => {
       <motion.div 
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
-        className="flex items-center justify-center py-12 min-h-screen"
+        className="flex items-center justify-center min-h-screen pt-16 pb-12 px-4" // Added pt-16 and px-4
       >
         <motion.div
           initial={{ scale: 0.9 }}
           animate={{ scale: 1 }}
-          className="w-full max-w-md p-8 bg-white/90 backdrop-blur-sm rounded-xl shadow-2xl border-4 border-teal-600"
+          className="w-full max-w-md p-8 my-8 bg-white/90 backdrop-blur-sm rounded-xl shadow-2xl border-4 border-teal-600" // Added my-8
         >
           <div className="text-center mb-8">
             <a href="/">

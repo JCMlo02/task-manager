@@ -11,6 +11,8 @@ const Navbar = ({ userPool, isDarkMode, toggleDarkMode }) => {
 
   const navItems = [
     { title: 'Home', path: '/' },
+    { title: 'Features', path: '/features' },
+    { title: 'About', path: '/about' },
   ];
 
   const signOut = () => {

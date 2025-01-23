@@ -18,7 +18,7 @@ def lambda_handler(event, context):
         path = event['resource']
         
         # Handle OPTIONS requests for CORS
-        if method == 'OPTIONS':
+        if (method == 'OPTIONS'):
             return {
                 'statusCode': 200,
                 'headers': headers,
@@ -50,27 +50,27 @@ def lambda_handler(event, context):
         # Route requests
         if path == '/projects':
             handlers = {
-                'POST': create_project,
-                'GET': get_projects,
-                'PUT': update_project,
-                'DELETE': delete_project
+                'POST': lambda e, uid: create_project(e, uid),
+                'GET': lambda e, uid: get_projects(uid),
+                'PUT': lambda e, uid: update_project(e, uid),
+                'DELETE': lambda e, uid: delete_project(e, uid)
             }
         elif path == '/tasks':
             handlers = {
-                'POST': create_task,
-                'GET': get_tasks,
-                'PUT': update_task,
-                'DELETE': delete_task
+                'POST': lambda e, uid: create_task(e, uid),
+                'GET': lambda e, uid: get_tasks(e, uid),
+                'PUT': lambda e, uid: update_task(e, uid),
+                'DELETE': lambda e, uid: delete_task(e, uid)
             }
         elif path == '/invites':
             handlers = {
-                'POST': invite_user,
-                'GET': lambda event, user_id: get_project_invites(user_id),
-                'PUT': lambda event, user_id: update_invite_status(event, user_id),
+                'POST': lambda e, uid: invite_user(e, uid),
+                'GET': lambda e, uid: get_project_invites(uid),
+                'PUT': lambda e, uid: update_invite_status(e, uid)
             }
         elif path == '/users':
             handlers = {
-                'GET': search_users
+                'GET': lambda e, uid: search_users(e, uid)
             }
         else:
             return {
