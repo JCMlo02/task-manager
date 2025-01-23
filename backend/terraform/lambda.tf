@@ -10,6 +10,8 @@ resource "aws_lambda_function" "task_manager_lambda" {
     variables = {
       PROJECT_TABLE = aws_dynamodb_table.projects.name
       TASK_TABLE    = aws_dynamodb_table.tasks.name
+      COGNITO_USER_POOLID = aws_cognito_user_pool.user_pool.id
+      COGNITO_CLIENT_ID = aws_cognito_user_pool_client.user_pool_client.id
     }
   }
 

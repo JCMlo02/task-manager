@@ -1,5 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { CognitoUser, AuthenticationDetails } from "amazon-cognito-identity-js";
+import { motion, AnimatePresence } from "framer-motion";
+import { Toaster, toast } from 'react-hot-toast';
 import Logo from "../assets/nobgLogo.png";
 import Navbar from "../components/Navbar";
 
@@ -26,50 +28,55 @@ const Login = ({ userPool }) => {
     });
   };
 
-  const handleLogin = (e) => {
+  const handleLogin = async (e) => {
     e.preventDefault();
+    toast.promise(
+      new Promise((resolve, reject) => {
+        const user = new CognitoUser({ Username: username, Pool: userPool });
+        const authDetails = new AuthenticationDetails({ Username: username, Password: password });
 
-    const user = new CognitoUser({
-      Username: username,
-      Pool: userPool,
-    });
-
-    const authDetails = new AuthenticationDetails({
-      Username: username,
-      Password: password,
-    });
-
-    // Use callbacks instead of async/await for Cognito methods
-    user.authenticateUser(authDetails, {
-      onSuccess: (result) => {
-        console.log("Login successful", result);
-        window.location.href = "/dashboard";
-      },
-      onFailure: (err) => {
-        console.error("Error logging in", err);
-        setError(err.message || "Error logging in");
-      },
-    });
+        user.authenticateUser(authDetails, {
+          onSuccess: (result) => {
+            resolve(result);
+            window.location.href = "/dashboard";
+          },
+          onFailure: (err) => {
+            reject(err);
+            setError(err.message || "Error logging in");
+          },
+        });
+      }),
+      {
+        loading: 'Logging in...',
+        success: 'Welcome back!',
+        error: (err) => err.message || 'Failed to login'
+      }
+    );
   };
 
   return (
-    <div
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
       className={`min-h-screen flex flex-col ${
         isDarkMode
           ? "bg-gray-800 text-white"
           : "bg-gradient-to-br from-teal-400 to-yellow-300"
       }`}
     >
-      {/* Navbar Component */}
-      <Navbar
-        userPool={userPool}
-        isDarkMode={isDarkMode}
-        toggleDarkMode={toggleDarkMode}
-      />
+      <Navbar userPool={userPool} isDarkMode={isDarkMode} toggleDarkMode={toggleDarkMode} />
+      <Toaster position="top-right" />
 
-      {/* Login Form */}
-      <div className="flex items-center justify-center flex-grow">
-        <div className="w-full max-w-md p-8 bg-white rounded-xl shadow-xl border-4 border-teal-600">
+      <motion.div 
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="flex items-center justify-center flex-grow p-4"
+      >
+        <motion.div
+          initial={{ scale: 0.9 }}
+          animate={{ scale: 1 }}
+          className="w-full max-w-md p-8 bg-white/90 backdrop-blur-sm rounded-xl shadow-2xl"
+        >
           <div className="text-center">
             <a href="/">
               <img
@@ -83,7 +90,10 @@ const Login = ({ userPool }) => {
             </p>
           </div>
 
-          <form onSubmit={handleLogin}>
+          <motion.form
+            onSubmit={handleLogin}
+            className="space-y-6"
+          >
             <div className="mb-6">
               <label
                 htmlFor="username"
@@ -115,7 +125,7 @@ const Login = ({ userPool }) => {
                 placeholder="Enter your password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                className="mt-2 p-4 w-full border border-teal-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 shadow-sm"
+                className="mt-2 p-4 w-full border border-teal-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 shadow-sm text-black"
                 required
               />
             </div>
@@ -126,11 +136,20 @@ const Login = ({ userPool }) => {
             >
               Login
             </button>
-          </form>
+          </motion.form>
 
-          {error && (
-            <p className="mt-4 text-center text-red-500 text-sm">{error}</p>
-          )}
+          <AnimatePresence>
+            {error && (
+              <motion.div
+                initial={{ opacity: 0, y: -10 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0 }}
+                className="mt-4 p-3 bg-red-50 text-red-500 rounded-lg"
+              >
+                {error}
+              </motion.div>
+            )}
+          </AnimatePresence>
 
           <div className="mt-6 text-center text-sm text-gray-600">
             <p>
@@ -140,9 +159,9 @@ const Login = ({ userPool }) => {
               </a>
             </p>
           </div>
-        </div>
-      </div>
-    </div>
+        </motion.div>
+      </motion.div>
+    </motion.div>
   );
 };
 
