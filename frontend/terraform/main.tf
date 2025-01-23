@@ -6,7 +6,7 @@ terraform {
     }
   }
   backend "s3" {
-    bucket = "tikitask-terraform-state"
+    bucket = "tikitask-taskmanager"
     key    = "frontend/tikitask.tfstate"
     region = "us-east-1"
   }
