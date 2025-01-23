@@ -7,8 +7,8 @@ import { CognitoUserPool } from "amazon-cognito-identity-js";
 
 // Cognito Configuration
 const poolData = {
-  UserPoolId: "us-east-1_UdgfkcfyY", // Your Cognito User Pool ID
-  ClientId: "1v03pj7h8fd88kcmsfsbs5chbk", // Your Cognito App Client ID
+  UserPoolId: "us-east-1_IeuK7i3zR", // Your Cognito User Pool ID
+  ClientId: "7kqvj4ovjqaucsq75ekphqdei5", // Your Cognito App Client ID
 };
 
 const userPool = new CognitoUserPool(poolData);

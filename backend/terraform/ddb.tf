@@ -40,4 +40,40 @@ resource "aws_dynamodb_table" "tasks" {
     range_key          = "project_id"  # Optional if you want to sort by project_id
     projection_type    = "ALL"  # This will include all attributes in the GSI
   }
+
+  attribute {
+    name = "assigned_to"
+    type = "S"
+  }
+
+  global_secondary_index {
+    name               = "assigned-tasks-index"
+    hash_key          = "assigned_to"
+    range_key         = "project_id"
+    projection_type   = "ALL"
+  }
+}
+
+resource "aws_dynamodb_table" "project_members" {
+  name           = "ProjectMembers"
+  billing_mode   = "PAY_PER_REQUEST"
+  hash_key       = "project_id"
+  range_key      = "user_id"
+
+  attribute {
+    name = "project_id"
+    type = "S"
+  }
+
+  attribute {
+    name = "user_id"
+    type = "S"
+  }
+
+  global_secondary_index {
+    name               = "user-projects-index"
+    hash_key          = "user_id"
+    range_key         = "project_id"
+    projection_type    = "ALL"
+  }
 }

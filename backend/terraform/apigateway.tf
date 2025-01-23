@@ -15,6 +15,18 @@ resource "aws_api_gateway_resource" "tasks" {
   path_part   = "tasks"
 }
 
+resource "aws_api_gateway_resource" "invites" {
+  rest_api_id = aws_api_gateway_rest_api.task_manager_api.id
+  parent_id   = aws_api_gateway_rest_api.task_manager_api.root_resource_id
+  path_part   = "invites"
+}
+
+resource "aws_api_gateway_resource" "users" {
+  rest_api_id = aws_api_gateway_rest_api.task_manager_api.id
+  parent_id   = aws_api_gateway_rest_api.task_manager_api.root_resource_id
+  path_part   = "users"
+}
+
 # Define the ANY method for /projects
 resource "aws_api_gateway_method" "any_method_projects" {
   rest_api_id   = aws_api_gateway_rest_api.task_manager_api.id
@@ -30,6 +42,20 @@ resource "aws_api_gateway_method" "any_method_tasks" {
   rest_api_id   = aws_api_gateway_rest_api.task_manager_api.id
   resource_id   = aws_api_gateway_resource.tasks.id
   http_method   = "ANY"
+  authorization = "NONE"
+}
+
+resource "aws_api_gateway_method" "any_method_invites" {
+  rest_api_id   = aws_api_gateway_rest_api.task_manager_api.id
+  resource_id   = aws_api_gateway_resource.invites.id
+  http_method   = "ANY"
+  authorization = "NONE"
+}
+
+resource "aws_api_gateway_method" "get_users" {
+  rest_api_id   = aws_api_gateway_rest_api.task_manager_api.id
+  resource_id   = aws_api_gateway_resource.users.id
+  http_method   = "GET"
   authorization = "NONE"
 }
 
@@ -49,6 +75,24 @@ resource "aws_api_gateway_integration" "lambda_integration_tasks" {
   resource_id             = aws_api_gateway_resource.tasks.id
   http_method             = aws_api_gateway_method.any_method_tasks.http_method
   integration_http_method = "POST"  # This is always POST for AWS Proxy integration
+  type                    = "AWS_PROXY"
+  uri                     = aws_lambda_function.task_manager_lambda.invoke_arn
+}
+
+resource "aws_api_gateway_integration" "lambda_integration_invites" {
+  rest_api_id             = aws_api_gateway_rest_api.task_manager_api.id
+  resource_id             = aws_api_gateway_resource.invites.id
+  http_method             = aws_api_gateway_method.any_method_invites.http_method
+  integration_http_method = "POST"
+  type                    = "AWS_PROXY"
+  uri                     = aws_lambda_function.task_manager_lambda.invoke_arn
+}
+
+resource "aws_api_gateway_integration" "lambda_integration_users" {
+  rest_api_id             = aws_api_gateway_rest_api.task_manager_api.id
+  resource_id             = aws_api_gateway_resource.users.id
+  http_method             = aws_api_gateway_method.get_users.http_method
+  integration_http_method = "POST"
   type                    = "AWS_PROXY"
   uri                     = aws_lambda_function.task_manager_lambda.invoke_arn
 }

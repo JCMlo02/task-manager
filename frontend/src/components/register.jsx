@@ -1,4 +1,6 @@
 import React, { useState, useEffect } from "react";
+import { motion, AnimatePresence } from "framer-motion";
+import { Toaster, toast } from 'react-hot-toast';
 import Navbar from "./Navbar"; // Import the Navbar component
 import Logo from "../assets/nobgLogo.png";
 
@@ -26,35 +28,31 @@ const Register = ({ userPool }) => {
   // Handle sign-up logic
   const handleSignUp = async (e) => {
     e.preventDefault();
-
-    const params = {
-      Username: username,
-      Password: password,
-      UserAttributes: [{ Name: "email", Value: email }],
-    };
-
-    try {
-      userPool.signUp(
-        params.Username,
-        params.Password,
-        params.UserAttributes,
-        [],
-        (err, data) => {
-          if (err) {
-            console.error("Error signing up", err);
-            setError(err.message || "Error signing up");
-          } else {
-            console.log("Sign-up successful", data);
-            setSuccessMessage(
-              "User successfully registered! Please verify your email."
-            );
+    
+    toast.promise(
+      new Promise((resolve, reject) => {
+        userPool.signUp(
+          username,
+          password,
+          [{ Name: "email", Value: email }],
+          null,
+          (err, data) => {
+            if (err) {
+              reject(err);
+              setError(err.message || "Error signing up");
+            } else {
+              resolve(data);
+              setSuccessMessage("User successfully registered! Please verify your email.");
+            }
           }
-        }
-      );
-    } catch (err) {
-      console.error("Error signing up", err);
-      setError(err.message || "Error signing up");
-    }
+        );
+      }),
+      {
+        loading: 'Creating your account...',
+        success: 'Registration successful! Please check your email.',
+        error: (err) => err.message || 'Failed to register'
+      }
+    );
   };
 
   // Conditional styling for dark mode
@@ -63,17 +61,24 @@ const Register = ({ userPool }) => {
     : "bg-gradient-to-br from-teal-400 to-yellow-300 text-teal-600";
 
   return (
-    <div className={`min-h-screen ${darkModeClasses}`}>
-      {/* Navbar Component */}
-      <Navbar
-        userPool={userPool}
-        isDarkMode={isDarkMode}
-        toggleDarkMode={toggleDarkMode}
-      />
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      className={`min-h-screen ${darkModeClasses}`}
+    >
+      <Navbar userPool={userPool} isDarkMode={isDarkMode} toggleDarkMode={toggleDarkMode} />
+      <Toaster position="top-right" />
 
-      {/* Main Register Form */}
-      <div className="flex items-center justify-center py-12 min-h-screen">
-        <div className="w-full max-w-md p-8 bg-white rounded-xl shadow-xl border-4 border-teal-600">
+      <motion.div 
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="flex items-center justify-center py-12 min-h-screen"
+      >
+        <motion.div
+          initial={{ scale: 0.9 }}
+          animate={{ scale: 1 }}
+          className="w-full max-w-md p-8 bg-white/90 backdrop-blur-sm rounded-xl shadow-2xl border-4 border-teal-600"
+        >
           <div className="text-center mb-8">
             <a href="/">
               <img
@@ -90,7 +95,10 @@ const Register = ({ userPool }) => {
             </p>
           </div>
 
-          <form onSubmit={handleSignUp}>
+          <motion.form
+            onSubmit={handleSignUp}
+            className="space-y-6"
+          >
             {/* Username */}
             <div className="mb-6">
               <label
@@ -155,20 +163,30 @@ const Register = ({ userPool }) => {
             >
               Sign Up
             </button>
-          </form>
+          </motion.form>
 
-          {/* Success and Error Messages */}
-          {successMessage && (
-            <div className="mt-4 text-center text-green-500">
-              <p>{successMessage}</p>
-              <a href="/login" className="text-teal-600 hover:underline">
-                Go to Login
-              </a>
-            </div>
-          )}
-          {error && (
-            <p className="mt-4 text-center text-red-500 text-sm">{error}</p>
-          )}
+          <AnimatePresence>
+            {successMessage && (
+              <motion.div
+                initial={{ opacity: 0, y: -10 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0 }}
+                className="mt-4 p-3 bg-green-50 text-green-500 rounded-lg"
+              >
+                {successMessage}
+              </motion.div>
+            )}
+            {error && (
+              <motion.div
+                initial={{ opacity: 0, y: -10 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0 }}
+                className="mt-4 p-3 bg-red-50 text-red-500 rounded-lg"
+              >
+                {error}
+              </motion.div>
+            )}
+          </AnimatePresence>
 
           {/* Redirect to Login Link */}
           <div className="mt-6 text-center text-sm text-gray-600">
@@ -179,9 +197,9 @@ const Register = ({ userPool }) => {
               </a>
             </p>
           </div>
-        </div>
-      </div>
-    </div>
+        </motion.div>
+      </motion.div>
+    </motion.div>
   );
 };
 
