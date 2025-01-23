@@ -57,7 +57,7 @@ const HomePage = ({ userPool }) => {
     }, 5000);
 
     return () => clearInterval(intervalId);
-  }, [currentIndex]);
+  }, [currentIndex, totalTestimonials]); // <-- Add totalTestimonials here
 
   const renderer = ({ days, hours, minutes, seconds }) => {
     const formatTime = (time) =>
