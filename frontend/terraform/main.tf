@@ -18,7 +18,7 @@ provider "aws" {
 
 # S3 bucket for website hosting
 resource "aws_s3_bucket" "tikitask_website" {
-  bucket = "tikitask-${var.domain_name}"
+  bucket = "tikitask-taskmanager"
 }
 
 resource "aws_s3_bucket_website_configuration" "tikitask_website" {
@@ -102,12 +102,11 @@ resource "aws_cloudfront_distribution" "tikitask_website" {
   viewer_certificate {
     cloudfront_default_certificate = true
   }
-
-  aliases = [var.domain_name]
 }
 
+
 resource "aws_cloudfront_origin_access_identity" "tikitask_website" {
-  comment = "TikiTask access identity for ${var.domain_name}"
+  comment = "TikiTask access identity for TikiTask"
 }
 
 # Output values
