@@ -77,17 +77,8 @@ resource "aws_dynamodb_table" "project_members" {
     type = "S"
   }
 
-  # Add status attribute for filtering
-  attribute {
-    name = "status"
-    type = "S"
-  }
-
-  # Add invited_by attribute for tracking
-  attribute {
-    name = "invited_by"
-    type = "S"
-  }
+  # Remove unused attribute definitions for status and invited_by since they're not used in any index
+  # We can still store these attributes in items, we just can't index them
 
   global_secondary_index {
     name               = "user-projects-index"
