@@ -38,13 +38,33 @@ def create_task(event, user_id):
         body = json.loads(event['body'])
         project_id = body['project_id']
         
-        # Validate assigned_to if provided
-        if 'assigned_to' in body and body['assigned_to']:
+        # Create task
+        task_id = str(uuid4())
+        current_time = datetime.now().isoformat()
+        
+        # Clean up assigned_to value - ensure it's not an empty string
+        assigned_to = body.get('assigned_to')
+        if not assigned_to:  # If it's empty string, None, or falsy
+            assigned_to = None  # Set to None instead of empty string
+        
+        task_item = {
+            'task_id': task_id,
+            'project_id': project_id,
+            'user_id': user_id,
+            'name': body['name'],
+            'description': body['description'],
+            'status': body.get('status', TASK_STATUSES['BACKLOG']),
+            'created_at': current_time,
+            'updated_at': current_time
+        }
+
+        # Only add assigned_to if it has a value
+        if assigned_to:
             # Verify user is member of project
             member = project_members_table.get_item(
                 Key={
                     'project_id': project_id,
-                    'user_id': body['assigned_to']
+                    'user_id': assigned_to
                 }
             ).get('Item')
             
@@ -54,29 +74,13 @@ def create_task(event, user_id):
                     'body': json.dumps('Cannot assign task to non-project member'),
                     'headers': CORS_HEADERS
                 }
-
-        # Create task
-        task_id = str(uuid4())
-        current_time = datetime.now().isoformat()
-        
-        task_item = {
-            'task_id': task_id,
-            'project_id': project_id,
-            'user_id': user_id,
-            'name': body['name'],
-            'description': body['description'],
-            'status': body.get('status', TASK_STATUSES['BACKLOG']),
-            'assigned_to': body.get('assigned_to'),
-            'created_at': current_time,
-            'updated_at': current_time
-        }
+            task_item['assigned_to'] = assigned_to
+            
+            # Get assignee details
+            assignee_details = get_user_details(assigned_to)
+            task_item['assignee_username'] = assignee_details['username']
         
         task_table.put_item(Item=task_item)
-        
-        # Get assignee details if task is assigned
-        if task_item.get('assigned_to'):
-            assignee_details = get_user_details(task_item['assigned_to'])
-            task_item['assignee_username'] = assignee_details['username']
         
         return {
             'statusCode': 200,
@@ -118,23 +122,26 @@ def get_user_details(user_id):
 def get_tasks(event, user_id):
     try:
         project_id = event.get('queryStringParameters', {}).get('project_id', None)
+        all_projects = event.get('queryStringParameters', {}).get('all_projects', 'false')
         
-        if not project_id:
+        if all_projects.lower() == 'true':
+            # Get all tasks for all projects the user is a member of
+            response = task_table.query(
+                IndexName='user_id-index',
+                KeyConditionExpression=Key('user_id').eq(user_id)
+            )
+        elif project_id:
+            # Get tasks for specific project
+            response = task_table.query(
+                IndexName='user_id-index',
+                KeyConditionExpression=Key('user_id').eq(user_id) & Key('project_id').eq(project_id)
+            )
+        else:
             return {
                 'statusCode': 400,
-                'body': json.dumps('Missing project_id query parameter'),
-                'headers': {
-                    'Access-Control-Allow-Headers': 'Content-Type',
-                    'Access-Control-Allow-Origin': '*',
-                    'Access-Control-Allow-Methods': '*'
-                },
+                'body': json.dumps('Missing project_id or all_projects parameter'),
+                'headers': CORS_HEADERS
             }
-
-        # Using the GSI correctly with user_id and project_id
-        response = task_table.query(
-            IndexName='user_id-index',
-            KeyConditionExpression=Key('user_id').eq(user_id) & Key('project_id').eq(project_id)
-        )
 
         tasks = response['Items']
         # Enrich tasks with assignee details
@@ -146,44 +153,65 @@ def get_tasks(event, user_id):
         return {
             'statusCode': 200,
             'body': json.dumps(tasks),
-            'headers': {
-                'Access-Control-Allow-Headers': 'Content-Type',
-                'Access-Control-Allow-Origin': '*',
-                'Access-Control-Allow-Methods': '*'
-            },
+            'headers': CORS_HEADERS
         }
     except ClientError as e:
         return {
             'statusCode': 500,
             'body': json.dumps(f"Error retrieving tasks: {e.response['Error']['Message']}"),
-            'headers': {
-                'Access-Control-Allow-Headers': 'Content-Type',
-                'Access-Control-Allow-Origin': '*',
-                'Access-Control-Allow-Methods': '*'
-            },
+            'headers': CORS_HEADERS
         }
 
 def update_task(event, user_id):
     try:
         body = json.loads(event['body'])
         task_id = event['queryStringParameters'].get('task_id')
-        project_id = body['project_id']
+        project_id = body.get('project_id')
         
-        # Validate assigned_to if being updated
-        if 'assigned_to' in body and body['assigned_to']:
-            member = project_members_table.get_item(
-                Key={
-                    'project_id': project_id,
-                    'user_id': body['assigned_to']
-                }
-            ).get('Item')
+        if not task_id or not project_id:
+            return {
+                'statusCode': 400,
+                'body': json.dumps('Missing task_id or project_id'),
+                'headers': CORS_HEADERS
+            }
             
-            if not member or member['status'] not in ['OWNER', 'ACCEPTED']:
-                return {
-                    'statusCode': 400,
-                    'body': json.dumps('Cannot assign task to non-project member'),
-                    'headers': CORS_HEADERS
-                }
+        # Verify project membership
+        member = project_members_table.get_item(
+            Key={
+                'project_id': project_id,
+                'user_id': user_id
+            }
+        ).get('Item')
+        
+        if not member or member['status'] not in ['OWNER', 'ACCEPTED']:
+            return {
+                'statusCode': 403,
+                'body': json.dumps('Not authorized to update tasks in this project'),
+                'headers': CORS_HEADERS
+            }
+            
+        # Rest of the update logic...
+        # ...existing code...
+        # Clean up assigned_to value
+        if 'assigned_to' in body:
+            assigned_to = body['assigned_to']
+            if not assigned_to:  # If it's empty string, None, or falsy
+                body['assigned_to'] = None  # Set to None instead of empty string
+            else:
+                # Verify user is member of project
+                member = project_members_table.get_item(
+                    Key={
+                        'project_id': project_id,
+                        'user_id': assigned_to
+                    }
+                ).get('Item')
+                
+                if not member or member['status'] not in ['OWNER', 'ACCEPTED']:
+                    return {
+                        'statusCode': 400,
+                        'body': json.dumps('Cannot assign task to non-project member'),
+                        'headers': CORS_HEADERS
+                    }
 
         # Rest of update logic
         update_expr = []
@@ -389,34 +417,52 @@ def update_project(event, user_id):
         body = json.loads(event['body'])
         project_id = event['queryStringParameters'].get('project_id')
         
-        # Using correct key structure for Projects table
+        # First verify user has permission to update project
+        member = project_members_table.get_item(
+            Key={
+                'project_id': project_id,
+                'user_id': user_id
+            }
+        ).get('Item')
+        
+        if not member or member['status'] not in ['OWNER', 'ACCEPTED']:
+            return {
+                'statusCode': 403,
+                'body': json.dumps('Not authorized to update this project'),
+                'headers': CORS_HEADERS
+            }
+
+        # Get original project owner
+        project = project_table.query(
+            IndexName='project-id-index',
+            KeyConditionExpression=Key('project_id').eq(project_id),
+            Limit=1
+        )['Items'][0]
+        
+        # Update project using original owner's user_id
         project_table.update_item(
             Key={
-                'user_id': user_id,  # Hash key
-                'project_id': project_id  # Range key
+                'user_id': project['user_id'],  # Use original owner's user_id
+                'project_id': project_id
             },
             UpdateExpression="SET #name = :name, description = :desc",
             ExpressionAttributeNames={"#name": "name"},
-            ExpressionAttributeValues={":name": body['name'], ":desc": body['description']},
+            ExpressionAttributeValues={
+                ":name": body['name'],
+                ":desc": body['description']
+            }
         )
+        
         return {
             'statusCode': 200,
             'body': json.dumps({'message': 'Project updated successfully'}),
-            'headers': {
-                'Access-Control-Allow-Headers': 'Content-Type',
-                'Access-Control-Allow-Origin': '*',
-                'Access-Control-Allow-Methods': '*'
-            }
+            'headers': CORS_HEADERS
         }
-    except ClientError as e:
+    except Exception as e:
         return {
             'statusCode': 500,
-            'body': json.dumps(f"Error updating project: {e.response['Error']['Message']}"),
-            'headers': {
-                'Access-Control-Allow-Headers': 'Content-Type',
-                'Access-Control-Allow-Origin': '*',
-                'Access-Control-Allow-Methods': '*'
-            }
+            'body': json.dumps(str(e)),
+            'headers': CORS_HEADERS
         }
 
 def delete_project(event, user_id):
