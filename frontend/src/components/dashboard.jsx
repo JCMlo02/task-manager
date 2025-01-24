@@ -358,8 +358,6 @@ const Dashboard = ({ userPool }) => {
           throw new Error(
             `Failed to ${isUpdate ? "update" : "create"} project`
           );
-        const data = await response.json();
-
         // No need to manually add creator to members - backend handles this
         await fetchProjects(); // Refresh projects to get updated member information
 
@@ -629,15 +627,6 @@ const Dashboard = ({ userPool }) => {
     }
   };
 
-  const acceptProjectInvitation = async (projectId) => {
-    await handleInviteResponse(projectId, "ACCEPTED");
-    await fetchProjects(); // Refresh projects list after accepting
-  };
-
-  const rejectProjectInvitation = async (projectId) => {
-    await handleInviteResponse(projectId, "REJECTED");
-  };
-
   const handleTaskModalOpen = (projectId) => {
     setSelectedIds({
       ...selectedIds,
@@ -654,8 +643,14 @@ const Dashboard = ({ userPool }) => {
   const NotificationsButton = () => (
     <div className="relative">
       <IconButton
-        icon={<FaBell className={pendingInvites.length > 0 ? "animate-pulse" : ""} />}
-        label={`Invites ${pendingInvites.length > 0 ? `(${pendingInvites.length})` : ''}`}
+        icon={
+          <FaBell
+            className={pendingInvites.length > 0 ? "animate-pulse" : ""}
+          />
+        }
+        label={`Invites ${
+          pendingInvites.length > 0 ? `(${pendingInvites.length})` : ""
+        }`}
         onClick={() => setShowInvitesModal(true)}
         className="px-6 py-3 bg-teal-600 text-white rounded-lg shadow-lg hover:bg-teal-700 
                   transform hover:scale-105 transition-all duration-300"
@@ -774,14 +769,18 @@ const Dashboard = ({ userPool }) => {
               </p>
               <div className="flex gap-2">
                 <button
-                  onClick={() => handleInviteResponse(invite.project_id, "ACCEPTED")}
+                  onClick={() =>
+                    handleInviteResponse(invite.project_id, "ACCEPTED")
+                  }
                   className="px-4 py-2 bg-teal-500 text-white rounded-lg hover:bg-teal-600 
                             transition-colors flex-1 flex items-center justify-center gap-2"
                 >
                   <FaCheck /> Accept
                 </button>
                 <button
-                  onClick={() => handleInviteResponse(invite.project_id, "REJECTED")}
+                  onClick={() =>
+                    handleInviteResponse(invite.project_id, "REJECTED")
+                  }
                   className="px-4 py-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600 
                             transition-colors flex-1 flex items-center justify-center gap-2"
                 >
@@ -1101,7 +1100,9 @@ const Dashboard = ({ userPool }) => {
                                             <div className="flex gap-2">
                                               <IconButton
                                                 icon={<FaEdit />}
-                                                onClick={() => handleEditTask(task)} // Use the new handleEditTask function
+                                                onClick={() =>
+                                                  handleEditTask(task)
+                                                } // Use the new handleEditTask function
                                                 className="text-teal-600 hover:text-teal-800"
                                               />
                                               <IconButton
@@ -1347,9 +1348,7 @@ const Dashboard = ({ userPool }) => {
           </AnimatePresence>
 
           <AnimatePresence>
-            {showInvitesModal && (
-              <InvitationsModal />
-            )}
+            {showInvitesModal && <InvitationsModal />}
           </AnimatePresence>
         </div>
       </motion.div>
