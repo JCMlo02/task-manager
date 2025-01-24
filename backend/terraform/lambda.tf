@@ -54,11 +54,21 @@ resource "aws_iam_policy" "lambda_policy" {
     Version = "2012-10-17"
     Statement = [
       {
-        Action   = ["dynamodb:PutItem", "dynamodb:Query", "dynamodb:UpdateItem", "dynamodb:DeleteItem"]
-        Effect   = "Allow"
+        Action = [
+          "dynamodb:PutItem",
+          "dynamodb:GetItem",
+          "dynamodb:Query",
+          "dynamodb:UpdateItem",
+          "dynamodb:DeleteItem"
+        ],
+        Effect = "Allow",
         Resource = [
           aws_dynamodb_table.projects.arn,
-          aws_dynamodb_table.tasks.arn
+          aws_dynamodb_table.tasks.arn,
+          aws_dynamodb_table.project_members.arn,
+          "${aws_dynamodb_table.projects.arn}/index/*",
+          "${aws_dynamodb_table.tasks.arn}/index/*",
+          "${aws_dynamodb_table.project_members.arn}/index/*"
         ]
       }
     ]

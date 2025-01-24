@@ -13,6 +13,13 @@ resource "aws_dynamodb_table" "projects" {
     name = "project_id"
     type = "S"
   }
+
+  # Add project-id-index for querying projects by project_id
+  global_secondary_index {
+    name               = "project-id-index"
+    hash_key          = "project_id"
+    projection_type    = "ALL"
+  }
 }
 
 
@@ -67,6 +74,18 @@ resource "aws_dynamodb_table" "project_members" {
 
   attribute {
     name = "user_id"
+    type = "S"
+  }
+
+  # Add status attribute for filtering
+  attribute {
+    name = "status"
+    type = "S"
+  }
+
+  # Add invited_by attribute for tracking
+  attribute {
+    name = "invited_by"
     type = "S"
   }
 
