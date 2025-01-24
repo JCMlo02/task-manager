@@ -11,6 +11,8 @@ import {
   FaTrashAlt,
   FaUserPlus,
   FaBell,
+  FaCheck,
+  FaTimes,
 } from "react-icons/fa";
 import { DragDropContext, Droppable, Draggable } from "react-beautiful-dnd";
 import { Menu, MenuItem } from "@szhsin/react-menu";
@@ -150,7 +152,6 @@ const Dashboard = ({ userPool }) => {
     taskToDelete: null,
   });
 
-  const [projectMembers, setProjectMembers] = useState([]);
   const [showInviteModal, setShowInviteModal] = useState(false);
 
   const [pendingInvites, setPendingInvites] = useState([]);
@@ -196,7 +197,6 @@ const Dashboard = ({ userPool }) => {
   const fetchProjects = async () => {
     setIsFetchingProjects(true);
     try {
-      // Updated to match app.py route with userId as query parameter
       const response = await fetch(`${API_URL}/projects?userId=${sub}`, {
         method: "GET",
         headers: {
@@ -205,6 +205,7 @@ const Dashboard = ({ userPool }) => {
       });
       if (!response.ok) throw new Error("Failed to fetch projects");
       const data = await response.json();
+      // Data now includes members array and role for each project
       setProjects(data);
     } catch (err) {
       setError(err.message);
@@ -359,25 +360,8 @@ const Dashboard = ({ userPool }) => {
           );
         const data = await response.json();
 
-        if (isUpdate) {
-          setProjects((prevProjects) =>
-            prevProjects.map((project) =>
-              project.project_id === selectedIds.selectedProjectId
-                ? { ...project, name, description }
-                : project
-            )
-          );
-        } else {
-          setProjects((prevProjects) => [
-            ...prevProjects,
-            {
-              name,
-              description,
-              project_id: data.project_id,
-              user_id: sub,
-            },
-          ]);
-        }
+        // No need to manually add creator to members - backend handles this
+        await fetchProjects(); // Refresh projects to get updated member information
 
         setFormState({ newProjectName: "", newProjectDescription: "" });
         setModalState({ ...modalState, isProjectModalOpen: false });
@@ -391,13 +375,14 @@ const Dashboard = ({ userPool }) => {
     });
   };
 
+  // Update handleTaskSubmit to correctly handle assigned_to
   const handleTaskSubmit = async (e, isUpdate = false) => {
     e.preventDefault();
     await withLoading(async () => {
       const {
         newTaskName: name,
         newTaskDescription: description,
-        assignedTo,
+        assignedTo: assigned_to, // Rename to match backend expectation
       } = formState;
 
       try {
@@ -416,7 +401,7 @@ const Dashboard = ({ userPool }) => {
             project_id: selectedIds.selectedProjectId,
             userId: sub,
             status: TASK_STATUSES.BACKLOG,
-            assignedTo,
+            assigned_to, // Use snake_case for API
           }),
         });
 
@@ -424,16 +409,23 @@ const Dashboard = ({ userPool }) => {
           throw new Error(`Failed to ${isUpdate ? "update" : "create"} task`);
         const data = await response.json();
 
+        // Update tasks state based on response
         if (isUpdate) {
           setTasks((prevTasks) =>
             prevTasks.map((task) =>
               task.task_id === selectedIds.selectedTaskId
-                ? { ...task, name, description, assignedTo }
+                ? {
+                    ...task,
+                    name,
+                    description,
+                    assigned_to,
+                    assignee_username: data.assignee_username, // Use the username from response
+                  }
                 : task
             )
           );
         } else {
-          setTasks((prevTasks) => [...prevTasks, data.task]);
+          setTasks((prevTasks) => [...prevTasks, data.task]); // Backend returns {task: {...}}
         }
 
         setFormState({
@@ -470,10 +462,39 @@ const Dashboard = ({ userPool }) => {
    * @param {string} status - Response status (ACCEPTED/REJECTED)
    */
   const handleInviteResponse = async (projectId, status) => {
-    if (status === "ACCEPTED") {
-      await acceptProjectInvitation(projectId);
-    } else {
-      await rejectProjectInvitation(projectId);
+    try {
+      const response = await fetch(`${API_URL}/invites`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          project_id: projectId,
+          status,
+          userId: sub,
+        }),
+      });
+
+      if (!response.ok) throw new Error("Failed to respond to invitation");
+
+      // Remove the invitation from pendingInvites immediately for better UX
+      setPendingInvites((prev) =>
+        prev.filter((invite) => invite.project_id !== projectId)
+      );
+
+      // Refresh projects list only if accepted
+      if (status === "ACCEPTED") {
+        await fetchProjects();
+        toast.success("Project invitation accepted");
+      } else {
+        toast.success("Project invitation declined");
+      }
+
+      // Close modal if no more invites
+      if (pendingInvites.length <= 1) {
+        setShowInvitesModal(false);
+      }
+    } catch (err) {
+      toast.error("Error responding to invitation");
+      console.error(err);
     }
   };
 
@@ -555,43 +576,7 @@ const Dashboard = ({ userPool }) => {
     });
   };
 
-  const fetchProjectMembers = async (projectId) => {
-    try {
-      const response = await fetch(
-        `${API_URL}/projects/${projectId}/members?userId=${sub}`,
-        {
-          headers: { "Content-Type": "application/json" },
-        }
-      );
-      if (!response.ok) throw new Error("Failed to fetch project members");
-      const data = await response.json();
-      setProjectMembers(data);
-    } catch (err) {
-      toast.error("Error fetching project members");
-      console.error(err);
-    }
-  };
-
-  const handleProjectInvitation = async (projectId, inviteeId) => {
-    try {
-      const response = await fetch(`${API_URL}/invites`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          project_id: projectId,
-          invitee_id: inviteeId,
-          userId: sub,
-        }),
-      });
-      if (!response.ok) throw new Error("Failed to send invitation");
-      toast.success("Invitation sent successfully");
-      setShowInviteModal(false);
-    } catch (err) {
-      toast.error("Error sending invitation");
-      console.error(err);
-    }
-  };
-
+  // Update task status update function to match API
   const updateTaskStatus = async (taskId, newStatus, projectId) => {
     try {
       const response = await fetch(`${API_URL}/tasks?task_id=${taskId}`, {
@@ -601,12 +586,45 @@ const Dashboard = ({ userPool }) => {
           status: newStatus,
           project_id: projectId,
           userId: sub,
+          assigned_to: tasks.find((t) => t.task_id === taskId)?.assigned_to, // Preserve assigned user
         }),
       });
       if (!response.ok) throw new Error("Failed to update task status");
+
+      const updatedTask = await response.json();
+      // Update local state with full response data
+      setTasks((prevTasks) =>
+        prevTasks.map((t) =>
+          t.task_id === taskId ? { ...t, ...updatedTask } : t
+        )
+      );
+
       toast.success("Task status updated");
     } catch (err) {
       toast.error("Error updating task status");
+      console.error(err);
+    }
+  };
+
+  // Update invitation handling to match API
+  const handleProjectInvitation = async (projectId, inviteeId) => {
+    try {
+      const response = await fetch(`${API_URL}/invites`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          project_id: projectId,
+          invitee_id: inviteeId, // Match backend field name
+          userId: sub,
+        }),
+      });
+
+      if (!response.ok) throw new Error("Failed to send invitation");
+      await fetchProjects(); // Refresh project data after invitation
+      toast.success("Invitation sent successfully");
+      setShowInviteModal(false);
+    } catch (err) {
+      toast.error("Error sending invitation");
       console.error(err);
     }
   };
@@ -620,27 +638,35 @@ const Dashboard = ({ userPool }) => {
     await handleInviteResponse(projectId, "REJECTED");
   };
 
-  useEffect(() => {
-    if (selectedIds.selectedProjectId) {
-      fetchProjectMembers(selectedIds.selectedProjectId);
-    }
-  }, [selectedIds.selectedProjectId]); // eslint-disable-line react-hooks/exhaustive-deps
+  const handleTaskModalOpen = (projectId) => {
+    setSelectedIds({
+      ...selectedIds,
+      selectedProjectId: projectId,
+    });
+    fetchTasks(projectId);
+    setModalState({
+      ...modalState,
+      isTaskModalOpen: true,
+    });
+  };
 
-  // Replace the notifications button
+  // Update NotificationsButton to show badge and handle click
   const NotificationsButton = () => (
-    <IconButton
-      icon={<FaBell />}
-      label="Invites"
-      onClick={() => setShowInvitesModal(true)}
-      className="px-6 py-3 bg-teal-600 text-white rounded-lg shadow-lg hover:bg-teal-700 
-                transform hover:scale-105 transition-all duration-300 relative"
-    >
-      {pendingInvites.length > 0 && (
-        <span className="absolute -top-1 -right-1 bg-red-500 text-white rounded-full w-5 h-5 text-xs flex items-center justify-center">
-          {pendingInvites.length}
-        </span>
-      )}
-    </IconButton>
+    <div className="relative">
+      <IconButton
+        icon={<FaBell className={pendingInvites.length > 0 ? "animate-pulse" : ""} />}
+        label={`Invites ${pendingInvites.length > 0 ? `(${pendingInvites.length})` : ''}`}
+        onClick={() => setShowInvitesModal(true)}
+        className="px-6 py-3 bg-teal-600 text-white rounded-lg shadow-lg hover:bg-teal-700 
+                  transform hover:scale-105 transition-all duration-300"
+      >
+        {pendingInvites.length > 0 && (
+          <span className="absolute -top-1 -right-1 bg-red-500 text-white rounded-full w-5 h-5 text-xs flex items-center justify-center animate-bounce">
+            {pendingInvites.length}
+          </span>
+        )}
+      </IconButton>
+    </div>
   );
 
   // Replace the new project button
@@ -706,6 +732,72 @@ const Dashboard = ({ userPool }) => {
   };
 
   const tasksByStatus = sortTasks(tasks);
+
+  // Fix Task Edit button - it's using assignedTo instead of assigned_to
+  const handleEditTask = (task) => {
+    setSelectedIds({
+      ...selectedIds,
+      selectedTaskId: task.task_id,
+    });
+    setFormState({
+      newTaskName: task.name,
+      newTaskDescription: task.description,
+      assignedTo: task.assigned_to, // Fix: use assigned_to instead of assignedTo
+    });
+    setModalState({
+      ...modalState,
+      isCreateTaskModalOpen: true,
+    });
+  };
+
+  // Update the invitations modal to show better information and actions
+  const InvitationsModal = () => (
+    <EnhancedModal
+      title="Project Invitations"
+      onClose={() => setShowInvitesModal(false)}
+    >
+      {pendingInvites.length > 0 ? (
+        <div className="space-y-4">
+          {pendingInvites.map((invite) => (
+            <div
+              key={invite.project_id}
+              className="border rounded-lg p-4 bg-gray-50 hover:bg-gray-100 transition-colors"
+            >
+              <h4 className="font-semibold text-lg text-teal-700">
+                {invite.project_name}
+              </h4>
+              <p className="text-sm text-gray-600 mb-2">
+                {invite.project_description}
+              </p>
+              <p className="text-xs text-gray-500 mb-4">
+                Invited by: {invite.inviter_username}
+              </p>
+              <div className="flex gap-2">
+                <button
+                  onClick={() => handleInviteResponse(invite.project_id, "ACCEPTED")}
+                  className="px-4 py-2 bg-teal-500 text-white rounded-lg hover:bg-teal-600 
+                            transition-colors flex-1 flex items-center justify-center gap-2"
+                >
+                  <FaCheck /> Accept
+                </button>
+                <button
+                  onClick={() => handleInviteResponse(invite.project_id, "REJECTED")}
+                  className="px-4 py-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600 
+                            transition-colors flex-1 flex items-center justify-center gap-2"
+                >
+                  <FaTimes /> Decline
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
+      ) : (
+        <div className="text-center py-8">
+          <p className="text-gray-600 text-lg">No pending invitations</p>
+        </div>
+      )}
+    </EnhancedModal>
+  );
 
   return (
     <section
@@ -786,9 +878,20 @@ const Dashboard = ({ userPool }) => {
                         <h4 className="text-xl font-semibold text-teal-700 mb-2">
                           {project.name}
                         </h4>
-                        <p className="text-gray-600 mb-4">
+                        <p className="text-gray-600 mb-2">
                           {project.description}
                         </p>
+
+                        {/* Add member count */}
+                        <div className="text-sm text-gray-500 mb-4">
+                          {project.members?.length || 1} member
+                          {project.members?.length !== 1 ? "s" : ""}
+                          {project.role && (
+                            <span className="ml-2 px-2 py-1 bg-teal-100 text-teal-700 rounded-full text-xs">
+                              {project.role}
+                            </span>
+                          )}
+                        </div>
 
                         <Menu
                           menuButton={
@@ -801,55 +904,54 @@ const Dashboard = ({ userPool }) => {
                           }
                           transition
                         >
+                          {/* Only show certain actions based on role */}
+                          {project.role === "OWNER" && (
+                            <>
+                              <MenuItem
+                                onClick={() => {
+                                  setSelectedIds({
+                                    ...selectedIds,
+                                    selectedProjectId: project.project_id,
+                                  });
+                                  setFormState({
+                                    newProjectName: project.name,
+                                    newProjectDescription: project.description,
+                                  });
+                                  setModalState({
+                                    ...modalState,
+                                    isProjectModalOpen: true,
+                                  });
+                                }}
+                              >
+                                <FaEdit className="mr-2" /> Edit
+                              </MenuItem>
+                              <MenuItem
+                                onClick={() => {
+                                  setSelectedIds({
+                                    ...selectedIds,
+                                    projectToDelete: project.project_id,
+                                  });
+                                  setModalState({
+                                    ...modalState,
+                                    isDeleteConfirmationOpen: true,
+                                  });
+                                }}
+                              >
+                                <FaTrashAlt className="mr-2" /> Delete
+                              </MenuItem>
+                              <MenuItem
+                                onClick={() => setShowInviteModal(true)}
+                              >
+                                <FaUserPlus className="mr-2" /> Invite
+                              </MenuItem>
+                            </>
+                          )}
                           <MenuItem
-                            onClick={() => {
-                              setSelectedIds({
-                                ...selectedIds,
-                                selectedProjectId: project.project_id,
-                              });
-                              setFormState({
-                                newProjectName: project.name,
-                                newProjectDescription: project.description,
-                              });
-                              setModalState({
-                                ...modalState,
-                                isProjectModalOpen: true,
-                              });
-                            }}
-                          >
-                            <FaEdit className="mr-2" /> Edit
-                          </MenuItem>
-                          <MenuItem
-                            onClick={() => {
-                              setSelectedIds({
-                                ...selectedIds,
-                                selectedProjectId: project.project_id,
-                              });
-                              fetchTasks(project.project_id);
-                              setModalState({
-                                ...modalState,
-                                isTaskModalOpen: true,
-                              });
-                            }}
+                            onClick={() =>
+                              handleTaskModalOpen(project.project_id)
+                            }
                           >
                             <FaTasks className="mr-2" /> Tasks
-                          </MenuItem>
-                          <MenuItem
-                            onClick={() => {
-                              setSelectedIds({
-                                ...selectedIds,
-                                projectToDelete: project.project_id,
-                              });
-                              setModalState({
-                                ...modalState,
-                                isDeleteConfirmationOpen: true,
-                              });
-                            }}
-                          >
-                            <FaTrashAlt className="mr-2" /> Delete
-                          </MenuItem>
-                          <MenuItem onClick={() => setShowInviteModal(true)}>
-                            <FaUserPlus className="mr-2" /> Invite
                           </MenuItem>
                         </Menu>
                       </motion.div>
@@ -985,29 +1087,21 @@ const Dashboard = ({ userPool }) => {
                                             mb-2 transition-all duration-200`}
                                         >
                                           <div className="flex justify-between items-start">
-                                            <h5 className="font-medium text-gray-800">
-                                              {task.name}
-                                            </h5>
+                                            <div className="flex-grow">
+                                              <h5 className="font-medium text-gray-800">
+                                                {task.name}
+                                              </h5>
+                                              {task.assignee_username && (
+                                                <span className="text-xs text-teal-600 bg-teal-50 px-2 py-1 rounded-full mt-1 inline-block">
+                                                  Assigned to:{" "}
+                                                  {task.assignee_username}
+                                                </span>
+                                              )}
+                                            </div>
                                             <div className="flex gap-2">
                                               <IconButton
                                                 icon={<FaEdit />}
-                                                onClick={() => {
-                                                  setSelectedIds({
-                                                    ...selectedIds,
-                                                    selectedTaskId:
-                                                      task.task_id,
-                                                  });
-                                                  setFormState({
-                                                    newTaskName: task.name,
-                                                    newTaskDescription:
-                                                      task.description,
-                                                    assignedTo: task.assignedTo,
-                                                  });
-                                                  setModalState({
-                                                    ...modalState,
-                                                    isCreateTaskModalOpen: true,
-                                                  });
-                                                }}
+                                                onClick={() => handleEditTask(task)} // Use the new handleEditTask function
                                                 className="text-teal-600 hover:text-teal-800"
                                               />
                                               <IconButton
@@ -1090,16 +1184,29 @@ const Dashboard = ({ userPool }) => {
                       })
                     }
                   />
+                  {/* Update the SelectField in create/edit task modal */}
                   <SelectField
                     label="Assign To"
                     value={formState.assignedTo}
                     onChange={(e) =>
                       setFormState({ ...formState, assignedTo: e.target.value })
                     }
-                    options={projectMembers.map((member) => ({
-                      value: member.user_id,
-                      label: member.email,
-                    }))}
+                    options={
+                      projects
+                        .find(
+                          (p) => p.project_id === selectedIds.selectedProjectId
+                        )
+                        ?.members?.filter(
+                          (member) =>
+                            member.status === "OWNER" ||
+                            member.status === "ACCEPTED"
+                        )
+                        .map((member) => ({
+                          value: member.user_id,
+                          label: member.username || member.user_id,
+                        })) || []
+                    }
+                    required={false}
                   />
                   <ModalActions
                     onCancel={() =>
@@ -1160,6 +1267,32 @@ const Dashboard = ({ userPool }) => {
                 title="Invite User to Project"
                 onClose={() => setShowInviteModal(false)}
               >
+                {/* Show current members first */}
+                <div className="mb-6">
+                  <h3 className="text-lg font-semibold text-gray-700 mb-2">
+                    Current Members
+                  </h3>
+                  {/* Update project member list in invite modal */}
+                  <div className="space-y-2 max-h-32 overflow-y-auto mb-4">
+                    {projects
+                      .find(
+                        (p) => p.project_id === selectedIds.selectedProjectId
+                      )
+                      ?.members?.map((member) => (
+                        <div
+                          key={member.user_id}
+                          className="flex items-center justify-between p-2 bg-gray-50 rounded"
+                        >
+                          <span>{member.username || member.user_id}</span>
+                          <span className="text-xs bg-teal-100 text-teal-600 px-2 py-1 rounded">
+                            {member.status}
+                          </span>
+                        </div>
+                      ))}
+                  </div>
+                </div>
+
+                {/* Existing invite form */}
                 <div className="mb-4">
                   <InputField
                     label="Search Users"
@@ -1215,57 +1348,7 @@ const Dashboard = ({ userPool }) => {
 
           <AnimatePresence>
             {showInvitesModal && (
-              <EnhancedModal
-                title="Project Invitations"
-                onClose={() => setShowInvitesModal(false)}
-              >
-                {pendingInvites.length > 0 ? (
-                  <div className="space-y-4">
-                    {pendingInvites.map((invite) => (
-                      <div
-                        key={invite.project_id}
-                        className="border rounded-lg p-4 bg-gray-50"
-                      >
-                        <h4 className="font-semibold">{invite.project_name}</h4>
-                        <p className="text-sm text-gray-600 mb-2">
-                          {invite.project_description}
-                        </p>
-                        <p className="text-xs text-gray-500 mb-4">
-                          Invited by: {invite.invited_by}
-                        </p>
-                        <div className="flex gap-2">
-                          <button
-                            onClick={() =>
-                              handleInviteResponse(
-                                invite.project_id,
-                                "ACCEPTED"
-                              )
-                            }
-                            className="px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600"
-                          >
-                            Accept
-                          </button>
-                          <button
-                            onClick={() =>
-                              handleInviteResponse(
-                                invite.project_id,
-                                "REJECTED"
-                              )
-                            }
-                            className="px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600"
-                          >
-                            Decline
-                          </button>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <p className="text-center text-gray-600">
-                    No pending invitations
-                  </p>
-                )}
-              </EnhancedModal>
+              <InvitationsModal />
             )}
           </AnimatePresence>
         </div>

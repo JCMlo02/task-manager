@@ -36,14 +36,27 @@ USER_POOL_ID = os.environ.get('COGNITO_USER_POOLID')  # Update this line
 def create_task(event, user_id):
     try:
         body = json.loads(event['body'])
-        task_id = str(uuid4())  # Generate unique task ID
-        project_id = body['project_id']  # Ensure project_id is provided in the request body
+        project_id = body['project_id']
         
-        # Validate status
-        status = body.get('status', TASK_STATUSES['BACKLOG'])
-        if status not in TASK_STATUSES.values():
-            status = TASK_STATUSES['BACKLOG']
-        
+        # Validate assigned_to if provided
+        if 'assigned_to' in body and body['assigned_to']:
+            # Verify user is member of project
+            member = project_members_table.get_item(
+                Key={
+                    'project_id': project_id,
+                    'user_id': body['assigned_to']
+                }
+            ).get('Item')
+            
+            if not member or member['status'] not in ['OWNER', 'ACCEPTED']:
+                return {
+                    'statusCode': 400,
+                    'body': json.dumps('Cannot assign task to non-project member'),
+                    'headers': CORS_HEADERS
+                }
+
+        # Create task
+        task_id = str(uuid4())
         current_time = datetime.now().isoformat()
         
         task_item = {
@@ -52,32 +65,55 @@ def create_task(event, user_id):
             'user_id': user_id,
             'name': body['name'],
             'description': body['description'],
-            'status': status,
-            'due_date': body.get('due_date'),
+            'status': body.get('status', TASK_STATUSES['BACKLOG']),
+            'assigned_to': body.get('assigned_to'),
             'created_at': current_time,
             'updated_at': current_time
         }
         
         task_table.put_item(Item=task_item)
+        
+        # Get assignee details if task is assigned
+        if task_item.get('assigned_to'):
+            assignee_details = get_user_details(task_item['assigned_to'])
+            task_item['assignee_username'] = assignee_details['username']
+        
         return {
             'statusCode': 200,
-            'body': json.dumps({'task': task_item}),
-            'headers': {
-                'Access-Control-Allow-Headers': 'Content-Type',
-                'Access-Control-Allow-Origin': '*',
-                'Access-Control-Allow-Methods': '*'
-            }
+            'body': json.dumps({
+                'task': task_item
+            }),
+            'headers': CORS_HEADERS
         }
+        
     except Exception as e:
         return {
             'statusCode': 500,
             'body': json.dumps(str(e)),
-            'headers': {
-                'Access-Control-Allow-Headers': 'Content-Type',
-                'Access-Control-Allow-Origin': '*',
-                'Access-Control-Allow-Methods': '*'
-            }
+            'headers': CORS_HEADERS
         }
+
+def get_user_details(user_id):
+    """Helper function to get user details from Cognito"""
+    try:
+        # Query for user using sub (user_id)
+        response = cognito.list_users(
+            UserPoolId=USER_POOL_ID,
+            Filter=f'sub = "{user_id}"'
+        )
+        
+        if not response.get('Users'):
+            return {'user_id': user_id, 'username': user_id}
+            
+        user = response['Users'][0]  # Get the first (and should be only) user
+        username = user.get('Username')  # This is the actual username
+            
+        return {
+            'user_id': user_id,  # Keep the sub ID as user_id
+            'username': username  # Use the actual Cognito username
+        }
+    except ClientError:
+        return {'user_id': user_id, 'username': user_id}
 
 def get_tasks(event, user_id):
     try:
@@ -100,9 +136,16 @@ def get_tasks(event, user_id):
             KeyConditionExpression=Key('user_id').eq(user_id) & Key('project_id').eq(project_id)
         )
 
+        tasks = response['Items']
+        # Enrich tasks with assignee details
+        for task in tasks:
+            if task.get('assigned_to'):
+                assignee_details = get_user_details(task['assigned_to'])
+                task['assignee_username'] = assignee_details['username']
+
         return {
             'statusCode': 200,
-            'body': json.dumps(response['Items']),
+            'body': json.dumps(tasks),
             'headers': {
                 'Access-Control-Allow-Headers': 'Content-Type',
                 'Access-Control-Allow-Origin': '*',
@@ -126,40 +169,23 @@ def update_task(event, user_id):
         task_id = event['queryStringParameters'].get('task_id')
         project_id = body['project_id']
         
-        # Add assigned_to field in update logic
-        if 'assigned_to' in body:
-            # Verify user is member of project
+        # Validate assigned_to if being updated
+        if 'assigned_to' in body and body['assigned_to']:
             member = project_members_table.get_item(
                 Key={
-                    'project_id': body['project_id'],
+                    'project_id': project_id,
                     'user_id': body['assigned_to']
                 }
             ).get('Item')
             
-            if not member:
+            if not member or member['status'] not in ['OWNER', 'ACCEPTED']:
                 return {
                     'statusCode': 400,
                     'body': json.dumps('Cannot assign task to non-project member'),
-                    'headers': {
-                        'Access-Control-Allow-Headers': 'Content-Type',
-                        'Access-Control-Allow-Origin': '*',
-                        'Access-Control-Allow-Methods': '*'
-                    }
+                    'headers': CORS_HEADERS
                 }
 
-        # Validate status if provided
-        if 'status' in body:
-            if body['status'] not in TASK_STATUSES.values():
-                return {
-                    'statusCode': 400,
-                    'body': json.dumps('Invalid status value'),
-                    'headers': {
-                        'Access-Control-Allow-Headers': 'Content-Type',
-                        'Access-Control-Allow-Origin': '*',
-                        'Access-Control-Allow-Methods': '*'
-                    }
-                }
-
+        # Rest of update logic
         update_expr = []
         expr_values = {':updated_at': datetime.now().isoformat()}
         expr_names = {'#updated_at': 'updated_at'}
@@ -172,36 +198,33 @@ def update_task(event, user_id):
 
         update_expression = "SET " + ", ".join(update_expr) + ", #updated_at = :updated_at"
 
-        # Using correct key structure for Tasks table
         response = task_table.update_item(
             Key={
-                'task_id': task_id,  # Hash key
-                'project_id': project_id  # Range key
+                'task_id': task_id,
+                'project_id': project_id
             },
             UpdateExpression=update_expression,
             ExpressionAttributeNames=expr_names,
             ExpressionAttributeValues=expr_values,
             ReturnValues='ALL_NEW'
         )
+        
+        # Add assignee username to response if task is assigned
+        updated_task = response['Attributes']
+        if updated_task.get('assigned_to'):
+            assignee_details = get_user_details(updated_task['assigned_to'])
+            updated_task['assignee_username'] = assignee_details['username']
 
         return {
             'statusCode': 200,
-            'body': json.dumps(response['Attributes']),
-            'headers': {
-                'Access-Control-Allow-Headers': 'Content-Type',
-                'Access-Control-Allow-Origin': '*',
-                'Access-Control-Allow-Methods': '*'
-            }
+            'body': json.dumps(updated_task),
+            'headers': CORS_HEADERS
         }
     except Exception as e:
         return {
             'statusCode': 500,
             'body': json.dumps(str(e)),
-            'headers': {
-                'Access-Control-Allow-Headers': 'Content-Type',
-                'Access-Control-Allow-Origin': '*',
-                'Access-Control-Allow-Methods': '*'
-            }
+            'headers': CORS_HEADERS
         }
 
 def delete_task(event, user_id):
@@ -258,7 +281,9 @@ def delete_task(event, user_id):
 def create_project(event, user_id):
     try:
         body = json.loads(event['body'])
-        project_id = str(uuid4())  # Generate unique project ID
+        project_id = str(uuid4())
+
+        # Create project
         project_table.put_item(
             Item={
                 'project_id': project_id,
@@ -268,51 +293,95 @@ def create_project(event, user_id):
             }
         )
 
+        # Add creator as a project member with OWNER status
+        project_members_table.put_item(
+            Item={
+                'project_id': project_id,
+                'user_id': user_id,
+                'status': 'OWNER',
+                'joined_at': datetime.now().isoformat()
+            }
+        )
+
         return {
             'statusCode': 200,
             'body': json.dumps({'project_id': project_id}),
-            'headers': {
-                'Access-Control-Allow-Headers': 'Content-Type',
-                'Access-Control-Allow-Origin': '*',
-                'Access-Control-Allow-Methods': '*'
-            },
+            'headers': CORS_HEADERS
         }
     except ClientError as e:
         return {
             'statusCode': 500,
             'body': json.dumps(f"Error creating project: {e.response['Error']['Message']}"),
-            'headers': {
-                'Access-Control-Allow-Headers': 'Content-Type',
-                'Access-Control-Allow-Origin': '*',
-                'Access-Control-Allow-Methods': '*'
-            },
+            'headers': CORS_HEADERS
         }
 
 def get_projects(user_id):
     try:
-        # Using the primary key correctly (user_id is now the hash key)
-        response = project_table.query(
-            KeyConditionExpression=Key('user_id').eq(user_id)
+        # Get all projects where user is a member
+        member_projects = project_members_table.query(
+            IndexName='user-projects-index',
+            KeyConditionExpression=Key('user_id').eq(user_id),
+            FilterExpression='#status IN (:owner, :member)',
+            ExpressionAttributeNames={'#status': 'status'},
+            ExpressionAttributeValues={':owner': 'OWNER', ':member': 'ACCEPTED'}
         )
+
+        projects = []
+        for member in member_projects['Items']:
+            project_id = member['project_id']
+            
+            # Get project details
+            project = None
+            try:
+                owner_response = project_table.query(
+                    IndexName='project-id-index',
+                    KeyConditionExpression=Key('project_id').eq(project_id),
+                    Limit=1
+                )
+                if owner_response['Items']:
+                    project = owner_response['Items'][0]
+            except ClientError:
+                continue
+
+            if project:
+                # Get all members for this project
+                members_response = project_members_table.query(
+                    KeyConditionExpression=Key('project_id').eq(project_id),
+                    FilterExpression='#status IN (:owner, :member)',
+                    ExpressionAttributeNames={'#status': 'status'},
+                    ExpressionAttributeValues={':owner': 'OWNER', ':member': 'ACCEPTED'}
+                )
+
+                # Enrich member information with Cognito details
+                members = []
+                for member_item in members_response['Items']:
+                    member_details = get_user_details(member_item['user_id'])
+                    members.append({
+                        'user_id': member_item['user_id'],
+                        'username': member_details['username'],
+                        'status': member_item['status']
+                    })
+
+                # Add member information to project
+                project['members'] = members
+                project['role'] = member['status']
+                
+                # Add owner details
+                owner_details = get_user_details(project['user_id'])
+                project['owner_username'] = owner_details['username']
+                
+                projects.append(project)
 
         return {
             'statusCode': 200,
-            'body': json.dumps(response['Items']),
-            'headers': {
-                'Access-Control-Allow-Headers': 'Content-Type',
-                'Access-Control-Allow-Origin': '*',
-                'Access-Control-Allow-Methods': '*'
-            }
+            'body': json.dumps(projects),
+            'headers': CORS_HEADERS
         }
     except ClientError as e:
         return {
             'statusCode': 500,
             'body': json.dumps(f"Error retrieving projects: {e.response['Error']['Message']}"),
-            'headers': {
-                'Access-Control-Allow-Headers': 'Content-Type',
-                'Access-Control-Allow-Origin': '*',
-                'Access-Control-Allow-Methods': '*'
-            }
+            'headers': CORS_HEADERS
         }
 
 def update_project(event, user_id):
@@ -432,7 +501,6 @@ def get_project_invites(user_id):
             ExpressionAttributeValues={':status': 'PENDING'}
         )
         
-        # Get project details for each invitation
         invites = []
         for item in response['Items']:
             project = project_table.get_item(
@@ -442,10 +510,14 @@ def get_project_invites(user_id):
                 }
             ).get('Item', {})
             
+            # Get inviter details
+            inviter_details = get_user_details(item['invited_by'])
+            
             invites.append({
                 **item,
                 'project_name': project.get('name', 'Unknown Project'),
-                'project_description': project.get('description', '')
+                'project_description': project.get('description', ''),
+                'inviter_username': inviter_details['username']
             })
         
         return {
@@ -486,6 +558,22 @@ def update_invite_status(event, user_id):
                 ':time': datetime.now().isoformat()
             }
         )
+
+        # If accepted, ensure user is added to project members (if not already)
+        if status == 'ACCEPTED':
+            try:
+                project_members_table.put_item(
+                    Item={
+                        'project_id': project_id,
+                        'user_id': user_id,
+                        'status': 'ACCEPTED',
+                        'joined_at': datetime.now().isoformat()
+                    },
+                    ConditionExpression='attribute_not_exists(project_id) AND attribute_not_exists(user_id)'
+                )
+            except ClientError as e:
+                if e.response['Error']['Code'] != 'ConditionalCheckFailedException':
+                    raise e
         
         return {
             'statusCode': 200,
@@ -503,21 +591,23 @@ def search_users(event, user_id):
     try:
         query = event.get('queryStringParameters', {}).get('query', '')
         
+        # Search by username
         response = cognito.list_users(
             UserPoolId=USER_POOL_ID,
-            Filter=f'username ^= "{query}"',  # Starts with query
+            Filter=f'username ^= "{query}"',  # Search by actual username
             Limit=10
         )
         
-        # Format user data
         users = []
         for user in response.get('Users', []):
-            if user.get('Username') != user_id:  # Don't include the requesting user
+            # Get the sub (user_id) from attributes
+            sub = next((attr['Value'] for attr in user.get('Attributes', []) 
+                       if attr['Name'] == 'sub'), None)
+            
+            if sub and sub != user_id:  # Don't include the requesting user
                 user_data = {
-                    'user_id': user['Username'],
-                    'username': user['Username'],
-                    'email': next((attr['Value'] for attr in user['Attributes'] 
-                                 if attr['Name'] == 'email'), None)
+                    'user_id': sub,  # Use the sub as user_id
+                    'username': user.get('Username')  # Use the actual username
                 }
                 users.append(user_data)
         
