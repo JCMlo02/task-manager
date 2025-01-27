@@ -139,8 +139,8 @@ def get_tasks(event, user_id):
                 project_id = member['project_id']
                 # Get tasks for each project
                 project_tasks = task_table.query(
-                    KeyConditionExpression=Key('project_id').eq(project_id),
-                    IndexName='project-id-index'
+                    IndexName='project-id-index',
+                    KeyConditionExpression=Key('project_id').eq(project_id)
                 )
                 all_tasks.extend(project_tasks.get('Items', []))
 
@@ -366,6 +366,7 @@ def create_project(event, user_id):
             'headers': CORS_HEADERS
         }
 
+# 1. Fix get_projects function to handle GSI errors
 def get_projects(user_id):
     try:
         # Get all projects where user is a member
@@ -382,19 +383,14 @@ def get_projects(user_id):
             project_id = member['project_id']
             
             # Get project details
-            project = None
-            try:
-                owner_response = project_table.query(
-                    IndexName='project-id-index',
-                    KeyConditionExpression=Key('project_id').eq(project_id),
-                    Limit=1
-                )
-                if owner_response['Items']:
-                    project = owner_response['Items'][0]
-            except ClientError:
-                continue
-
-            if project:
+            owner_response = project_table.query(
+                IndexName='project-id-index',
+                KeyConditionExpression=Key('project_id').eq(project_id),
+                Limit=1
+            )
+            
+            if owner_response['Items']:
+                project = owner_response['Items'][0]
                 # Get all members for this project
                 members_response = project_members_table.query(
                     KeyConditionExpression=Key('project_id').eq(project_id),
@@ -455,17 +451,26 @@ def update_project(event, user_id):
                 'headers': CORS_HEADERS
             }
 
-        # Get original project owner
-        project = project_table.query(
+        # Get project to verify it exists and get owner's user_id
+        project_response = project_table.query(
             IndexName='project-id-index',
             KeyConditionExpression=Key('project_id').eq(project_id),
             Limit=1
-        )['Items'][0]
+        )
         
-        # Update project using original owner's user_id
+        if not project_response['Items']:
+            return {
+                'statusCode': 404,
+                'body': json.dumps('Project not found'),
+                'headers': CORS_HEADERS
+            }
+        
+        owner_id = project_response['Items'][0]['user_id']
+        
+        # Update project using owner's user_id
         project_table.update_item(
             Key={
-                'user_id': project['user_id'],  # Use original owner's user_id
+                'user_id': owner_id,  # Must use owner's user_id due to table structure
                 'project_id': project_id
             },
             UpdateExpression="SET #name = :name, description = :desc",
@@ -554,6 +559,55 @@ def delete_project(event, user_id):
             'headers': CORS_HEADERS
         }
 
+def get_project_invites(user_id):
+    try:
+        # Query invitations by user_id
+        response = project_members_table.query(
+            IndexName='user-projects-index',
+            KeyConditionExpression=Key('user_id').eq(user_id),
+            FilterExpression='#status = :status',
+            ExpressionAttributeNames={'#status': 'status'},
+            ExpressionAttributeValues={':status': 'PENDING'}
+        )
+        
+        invites = []
+        for item in response['Items']:
+            try:
+                # Try to get project details with error handling
+                project_response = project_table.get_item(
+                    Key={
+                        'project_id': item['project_id'],
+                        'user_id': item['invited_by']
+                    }
+                )
+                project = project_response.get('Item', {})
+                
+                # Only add valid invites for existing projects
+                if project:
+                    # Get inviter details
+                    inviter_details = get_user_details(item['invited_by'])
+                    
+                    invites.append({
+                        **item,
+                        'project_name': project.get('name', 'Unknown Project'),
+                        'project_description': project.get('description', ''),
+                        'inviter_username': inviter_details['username']
+                    })
+            except ClientError:
+                continue  # Skip invalid invites
+        
+        return {
+            'statusCode': 200,
+            'body': json.dumps(invites),
+            'headers': CORS_HEADERS
+        }
+    except Exception as e:
+        return {
+            'statusCode': 500,
+            'body': json.dumps(str(e)),
+            'headers': CORS_HEADERS
+        }
+
 def invite_user(event, user_id):
     try:
         body = json.loads(event['body'])
@@ -561,17 +615,35 @@ def invite_user(event, user_id):
         invitee_id = body['invitee_id']
         
         # Check if user is project owner
-        project = project_table.get_item(
-            Key={'user_id': user_id, 'project_id': project_id}
+        member = project_members_table.get_item(
+            Key={
+                'project_id': project_id,
+                'user_id': user_id
+            }
         ).get('Item')
         
-        if not project:
+        if not member or member['status'] != 'OWNER':
             return {
                 'statusCode': 403,
-                'body': json.dumps('Not authorized to invite to this project'),
+                'body': json.dumps('Only project owner can send invitations'),
                 'headers': CORS_HEADERS
             }
         
+        # Check if user is already a member
+        existing_member = project_members_table.get_item(
+            Key={
+                'project_id': project_id,
+                'user_id': invitee_id
+            }
+        ).get('Item')
+        
+        if existing_member:
+            return {
+                'statusCode': 400,
+                'body': json.dumps('User is already a member or has a pending invitation'),
+                'headers': CORS_HEADERS
+            }
+
         # Add member to project
         project_members_table.put_item(
             Item={
@@ -586,48 +658,6 @@ def invite_user(event, user_id):
         return {
             'statusCode': 200,
             'body': json.dumps({'message': 'Invitation sent successfully'}),
-            'headers': CORS_HEADERS
-        }
-    except Exception as e:
-        return {
-            'statusCode': 500,
-            'body': json.dumps(str(e)),
-            'headers': CORS_HEADERS
-        }
-
-def get_project_invites(user_id):
-    try:
-        # Query invitations by user_id
-        response = project_members_table.query(
-            IndexName='user-projects-index',
-            KeyConditionExpression=Key('user_id').eq(user_id),
-            FilterExpression='#status = :status',
-            ExpressionAttributeNames={'#status': 'status'},
-            ExpressionAttributeValues={':status': 'PENDING'}
-        )
-        
-        invites = []
-        for item in response['Items']:
-            project = project_table.get_item(
-                Key={
-                    'project_id': item['project_id'],
-                    'user_id': item['invited_by']
-                }
-            ).get('Item', {})
-            
-            # Get inviter details
-            inviter_details = get_user_details(item['invited_by'])
-            
-            invites.append({
-                **item,
-                'project_name': project.get('name', 'Unknown Project'),
-                'project_description': project.get('description', ''),
-                'inviter_username': inviter_details['username']
-            })
-        
-        return {
-            'statusCode': 200,
-            'body': json.dumps(invites),
             'headers': CORS_HEADERS
         }
     except Exception as e:
