@@ -18,8 +18,4 @@ AWS.config.update({ region: "us-east-1" });
 
 const root = ReactDOM.createRoot(document.getElementById("root"));
 
-root.render(
-  <React.StrictMode>
-    <App userPool={userPool} />
-  </React.StrictMode>
-);
+root.render(<App userPool={userPool} />);

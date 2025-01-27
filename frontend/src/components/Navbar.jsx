@@ -3,17 +3,22 @@ import { Link, useNavigate, useLocation } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import tikiLogo from "../assets/nobgLogo.png";
 
-const Navbar = ({ userPool, isDarkMode, toggleDarkMode }) => {
+const Navbar = ({ userPool, isDarkMode, toggleDarkMode, className }) => {
   const navigate = useNavigate();
   const location = useLocation();
   const currentUser = userPool.getCurrentUser();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
 
-  const navItems = [
-    { title: 'Home', path: '/' },
-    { title: 'Features', path: '/features' },
-    { title: 'About', path: '/about' },
-  ];
+  // Only show these nav items when not on dashboard
+  const shouldShowNavItems = !currentUser || location.pathname !== '/dashboard';
+
+  const navItems = shouldShowNavItems 
+    ? [
+        { title: 'Home', path: '/' },
+        { title: 'Features', path: '/features' },
+        { title: 'About', path: '/about' },
+      ]
+    : [];
 
   const signOut = () => {
     if (currentUser) {
@@ -25,7 +30,7 @@ const Navbar = ({ userPool, isDarkMode, toggleDarkMode }) => {
 
   return (
     <nav
-      className={`fixed w-full z-50 transition-colors duration-300 ${
+      className={`${className} transition-colors duration-300 ${
         isDarkMode
           ? "bg-gray-900/95 text-white backdrop-blur-sm"
           : "bg-teal-600/95 text-white backdrop-blur-sm"
@@ -33,12 +38,11 @@ const Navbar = ({ userPool, isDarkMode, toggleDarkMode }) => {
     >
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-16">
-          {/* Logo */}
           <motion.div
             whileHover={{ scale: 1.05 }}
             className="flex-shrink-0"
           >
-            <Link to="/">
+            <Link to={currentUser ? "/dashboard" : "/"}>
               <img src={tikiLogo} alt="TikiTask Logo" className="h-12 w-auto" />
             </Link>
           </motion.div>
@@ -111,40 +115,42 @@ const Navbar = ({ userPool, isDarkMode, toggleDarkMode }) => {
           </div>
 
           {/* Mobile menu button */}
-          <motion.button
-            whileTap={{ scale: 0.95 }}
-            className="md:hidden inline-flex items-center justify-center p-2 rounded-md hover:text-teal-200"
-            onClick={() => setIsMenuOpen(!isMenuOpen)}
-          >
-            <svg
-              className="h-6 w-6"
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
+          {shouldShowNavItems && (
+            <motion.button
+              whileTap={{ scale: 0.95 }}
+              className="md:hidden inline-flex items-center justify-center p-2 rounded-md hover:text-teal-200"
+              onClick={() => setIsMenuOpen(!isMenuOpen)}
             >
-              {isMenuOpen ? (
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M6 18L18 6M6 6l12 12"
-                />
-              ) : (
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M4 6h16M4 12h16M4 18h16"
-                />
-              )}
-            </svg>
-          </motion.button>
+              <svg
+                className="h-6 w-6"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+              >
+                {isMenuOpen ? (
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M6 18L18 6M6 6l12 12"
+                  />
+                ) : (
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M4 6h16M4 12h16M4 18h16"
+                  />
+                )}
+              </svg>
+            </motion.button>
+          )}
         </div>
       </div>
 
       {/* Mobile menu */}
       <AnimatePresence>
-        {isMenuOpen && (
+        {isMenuOpen && shouldShowNavItems && (
           <motion.div
             initial={{ opacity: 0, height: 0 }}
             animate={{ opacity: 1, height: "auto" }}

@@ -7,7 +7,7 @@ const EnhancedModal = ({ title, children, onClose, maxWidth = "max-w-md" }) => (
     initial={{ opacity: 0 }}
     animate={{ opacity: 1 }}
     exit={{ opacity: 0 }}
-    className="fixed inset-0 bg-black/50 backdrop-blur-sm flex justify-center items-center overflow-y-auto p-4"
+    className="fixed inset-0 bg-black/50 backdrop-blur-sm flex justify-center items-center overflow-y-auto p-4 z-50"
   >
     <motion.div
       initial={{ scale: 0.9, y: 20 }}

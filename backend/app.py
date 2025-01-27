@@ -18,18 +18,22 @@ def lambda_handler(event, context):
         path = event['resource']
         
         # Handle OPTIONS requests for CORS
-        if (method == 'OPTIONS'):
+        if method == 'OPTIONS':
             return {
                 'statusCode': 200,
                 'headers': headers,
                 'body': json.dumps('OK')
             }
         
-        # Extract user_id consistently
+        # Extract user_id more robustly
         user_id = None
-        if method == 'GET':
-            user_id = event.get('queryStringParameters', {}).get('userId')
-        else:
+        query_params = event.get('queryStringParameters', {}) or {}
+        
+        # Try to get user_id from query parameters first
+        user_id = query_params.get('userId')
+        
+        # If not in query params, try to get from body
+        if not user_id and method in ['POST', 'PUT', 'DELETE']:
             try:
                 body = json.loads(event.get('body', '{}'))
                 user_id = body.get('userId')
@@ -40,14 +44,15 @@ def lambda_handler(event, context):
                     'body': json.dumps('Invalid JSON in request body')
                 }
 
+        # Validate user_id
         if not user_id:
             return {
-                'statusCode': 400,
+                'statusCode': 401,
                 'headers': headers,
-                'body': json.dumps('Missing userId')
+                'body': json.dumps('Unauthorized: Missing userId')
             }
 
-        # Route requests
+        # Route requests with validated user_id
         if path == '/projects':
             handlers = {
                 'POST': lambda e, uid: create_project(e, uid),
@@ -87,9 +92,14 @@ def lambda_handler(event, context):
                 'body': json.dumps('Method Not Allowed')
             }
 
+        # Log request details for debugging
+        print(f"Processing {method} request to {path} for user_id: {user_id}")
+        
+        # Call handler with validated user_id
         return handler(event, user_id)
 
     except Exception as e:
+        print(f"Error processing request: {str(e)}")  # Add logging
         return {
             'statusCode': 500,
             'headers': headers,

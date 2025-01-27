@@ -34,18 +34,15 @@ const AnalyticsDashboard = ({ tasks, projects, isDarkMode }) => {
   const [chartData, setChartData] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
 
-  // Move useCallback definition to top level
   const processData = useCallback(() => {
     if (!tasks || !projects) return;
 
-    // Process tasks by status
     const statusCount = tasks.reduce((acc, task) => {
       acc[task.status] = (acc[task.status] || 0) + 1;
       return acc;
     }, {});
     setTasksByStatus(statusCount);
 
-    // Process tasks trend (last 7 days)
     const last7Days = [...Array(7)]
       .map((_, i) => {
         const date = new Date();
@@ -63,7 +60,6 @@ const AnalyticsDashboard = ({ tasks, projects, isDarkMode }) => {
     }));
     setTasksTrend(trendData);
 
-    // Process project metrics
     const metrics = projects.map((project) => {
       const projectTasks = tasks.filter(
         (task) => task.project_id === project.project_id
@@ -82,7 +78,6 @@ const AnalyticsDashboard = ({ tasks, projects, isDarkMode }) => {
     setIsLoading(false);
   }, [tasks, projects]);
 
-  // Move chart data preparation to useEffect
   useEffect(() => {
     if (!tasksTrend.length) return;
 
@@ -102,7 +97,6 @@ const AnalyticsDashboard = ({ tasks, projects, isDarkMode }) => {
     setChartData(data);
   }, [tasksTrend, isDarkMode]);
 
-  // Process data when tasks or projects change
   useEffect(() => {
     processData();
   }, [processData]);
@@ -141,7 +135,6 @@ const AnalyticsDashboard = ({ tasks, projects, isDarkMode }) => {
       animate={{ opacity: 1 }}
       className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"
     >
-      {/* Task Status Distribution */}
       <div
         className={`p-6 rounded-xl shadow-lg ${
           isDarkMode ? "bg-slate-800" : "bg-white"
@@ -175,7 +168,6 @@ const AnalyticsDashboard = ({ tasks, projects, isDarkMode }) => {
         )}
       </div>
 
-      {/* Task Trend */}
       <div
         className={`p-6 rounded-xl shadow-lg ${
           isDarkMode ? "bg-slate-800" : "bg-white"
@@ -191,7 +183,6 @@ const AnalyticsDashboard = ({ tasks, projects, isDarkMode }) => {
         {chartData && <Line data={chartData} options={options} />}
       </div>
 
-      {/* Project Progress */}
       <div
         className={`p-6 rounded-xl shadow-lg ${
           isDarkMode ? "bg-slate-800" : "bg-white"
