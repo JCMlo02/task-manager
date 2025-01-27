@@ -1,4 +1,5 @@
-import React from "react";
+import React, { useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import {
   FaTasks,
@@ -9,22 +10,71 @@ import {
 } from "react-icons/fa";
 import Navbar from "./Navbar";
 
-const FeatureCard = ({ icon, title, description }) => (
+const THEME = {
+  light: {
+    bg: "bg-gradient-to-br from-slate-50 to-gray-100",
+    text: "text-slate-700",
+    accent: "text-indigo-600",
+    card: "bg-white",
+    hover: "hover:bg-slate-50",
+  },
+  dark: {
+    bg: "bg-gradient-to-br from-slate-800 to-slate-900",
+    text: "text-slate-200",
+    accent: "text-indigo-400",
+    card: "bg-slate-800",
+    hover: "hover:bg-slate-700",
+  },
+};
+
+const FeatureCard = ({ icon, title, description, isDarkMode }) => (
   <motion.div
     initial={{ opacity: 0, y: 20 }}
     whileInView={{ opacity: 1, y: 0 }}
     viewport={{ once: true }}
-    className="bg-white rounded-xl shadow-lg p-6 hover:shadow-xl transition-shadow"
+    className={`
+      ${isDarkMode ? THEME.dark.card : THEME.light.card}
+      rounded-xl shadow-lg p-6 hover:shadow-xl transition-shadow
+      ${isDarkMode ? "border border-slate-700" : "border border-slate-200"}
+    `}
   >
-    <div className="text-4xl text-teal-500 mb-4">{icon}</div>
-    <h3 className="text-xl font-semibold text-teal-600 mb-2">{title}</h3>
-    <p className="text-gray-600">{description}</p>
+    <div
+      className={`text-4xl ${
+        isDarkMode ? "text-indigo-400" : "text-indigo-500"
+      } mb-4`}
+    >
+      {icon}
+    </div>
+    <h3
+      className={`text-xl font-semibold ${
+        isDarkMode ? THEME.dark.text : THEME.light.text
+      } mb-2`}
+    >
+      {title}
+    </h3>
+    <p className={isDarkMode ? "text-slate-400" : "text-slate-600"}>
+      {description}
+    </p>
   </motion.div>
 );
 
 const Features = ({ userPool }) => {
+  const navigate = useNavigate();
   const isDarkMode = localStorage.getItem("isDarkMode") === "true";
-  const toggleDarkMode = () => {}; // Empty function as we don't need dark mode toggle here
+
+  // Add this useEffect for redirect
+  useEffect(() => {
+    const currentUser = userPool?.getCurrentUser();
+    if (currentUser) {
+      navigate("/dashboard");
+    }
+  }, [userPool, navigate]);
+
+  const toggleDarkMode = () => {
+    const newDarkMode = !isDarkMode;
+    localStorage.setItem("isDarkMode", newDarkMode);
+    window.location.reload();
+  };
 
   const features = [
     {
@@ -63,8 +113,8 @@ const Features = ({ userPool }) => {
     <div
       className={`min-h-screen ${
         isDarkMode
-          ? "bg-gray-900 text-white"
-          : "bg-gradient-to-br from-teal-500 to-orange-400"
+          ? THEME.dark.bg
+          : "bg-gradient-to-br from-teal-600 to-indigo-600"
       }`}
     >
       <Navbar
@@ -78,9 +128,17 @@ const Features = ({ userPool }) => {
         animate={{ opacity: 1 }}
         className="pt-20 px-4 max-w-6xl mx-auto"
       >
-        <div className="bg-white/90 backdrop-blur-sm rounded-xl shadow-2xl p-8 mt-8">
+        <div
+          className={`
+          ${isDarkMode ? THEME.dark.card : THEME.light.card}
+          backdrop-blur-sm rounded-xl shadow-2xl p-8 mt-8
+          ${isDarkMode ? "border border-slate-700" : "border border-slate-200"}
+        `}
+        >
           <motion.h1
-            className="text-4xl font-bold text-teal-600 mb-8 text-center"
+            className={`text-4xl font-bold ${
+              isDarkMode ? THEME.dark.text : THEME.light.text
+            } mb-8 text-center`}
             initial={{ opacity: 0, y: -20 }}
             animate={{ opacity: 1, y: 0 }}
           >
@@ -94,6 +152,7 @@ const Features = ({ userPool }) => {
                 icon={feature.icon}
                 title={feature.title}
                 description={feature.description}
+                isDarkMode={isDarkMode}
               />
             ))}
           </div>
@@ -104,10 +163,18 @@ const Features = ({ userPool }) => {
             whileInView={{ opacity: 1 }}
             viewport={{ once: true }}
           >
-            <h2 className="text-2xl font-semibold text-teal-600 mb-4">
+            <h2
+              className={`text-2xl font-semibold ${
+                isDarkMode ? THEME.dark.text : THEME.light.text
+              } mb-4`}
+            >
               Ready to get started?
             </h2>
-            <p className="text-gray-600 mb-6">
+            <p
+              className={`${
+                isDarkMode ? "text-slate-400" : "text-slate-600"
+              } mb-6`}
+            >
               Join thousands of teams already using TikiTask to improve their
               productivity.
             </p>
@@ -115,7 +182,14 @@ const Features = ({ userPool }) => {
               <motion.button
                 whileHover={{ scale: 1.05 }}
                 whileTap={{ scale: 0.95 }}
-                className="px-8 py-3 bg-teal-500 text-white rounded-lg shadow-lg hover:bg-teal-600 transition-colors"
+                className={`
+                  px-8 py-3 rounded-lg shadow-lg transition-colors
+                  ${
+                    isDarkMode
+                      ? "bg-indigo-600 hover:bg-indigo-700 text-white"
+                      : "bg-indigo-500 hover:bg-indigo-600 text-white"
+                  }
+                `}
               >
                 Try TikiTask Free
               </motion.button>

@@ -1,109 +1,27 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useReducer, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import Navbar from "./Navbar";
 import { motion, AnimatePresence } from "framer-motion";
 import { Toaster, toast } from "react-hot-toast";
-import {
-  FaPlusCircle,
-  FaEdit,
-  FaTasks,
-  FaTimesCircle,
-  FaTrashAlt,
-  FaUserPlus,
-  FaBell,
-  FaCheck,
-  FaTimes,
-  FaEllipsisV,
-} from "react-icons/fa";
-import { DragDropContext, Droppable, Draggable } from "react-beautiful-dnd";
-import { Menu, MenuItem } from "@szhsin/react-menu";
+import { FaPlusCircle } from "react-icons/fa";
+import { DragDropContext } from "react-beautiful-dnd";
 import "@szhsin/react-menu/dist/index.css";
 import "@szhsin/react-menu/dist/transitions/slide.css";
 import LoadingSpinner from "./dashboard/LoadingSpinner";
-import InputField from "./dashboard/InputField";
-import TextAreaField from "./dashboard/TextAreaField";
-import ModalActions from "./dashboard/ModalActions";
 import AnalyticsDashboard from "./dashboard/AnalyticsDashboard";
-
-/**
- * Select Field Component
- * @component
- * @param {Object} props
- * @param {string} props.label - Field label
- * @param {string} props.value - Selected value
- * @param {Function} props.onChange - Change handler
- * @param {Array<{value: string, label: string}>} props.options - Select options
- * @param {boolean} [props.required=true] - Whether field is required
- */
-const SelectField = ({ label, value, onChange, options, required = true }) => (
-  <div className="mb-4">
-    <label className="block text-gray-600 mb-2">{label}</label>
-    <select
-      className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-300
-        bg-white text-gray-700 transition-all duration-200"
-      value={value}
-      onChange={onChange}
-      required={required}
-    >
-      <option value="">Select an option</option>
-      {options.map((option) => (
-        <option key={option.value} value={option.value}>
-          {option.label}
-        </option>
-      ))}
-    </select>
-  </div>
-);
+import InvitationsModal from "./dashboard/InvitationsModal";
+import ProjectForm from "./dashboard/ProjectForm";
+import TaskForm from "./dashboard/TaskForm";
+import { taskReducer } from "./dashboard/index.js";
+import { TASK_STATUSES, THEME } from "../constants";
+import { TaskColumn } from "./dashboard/TaskBoard";
+import { ProjectCard, EnhancedModal } from "./dashboard/ProjectCard";
+import { LoadingOverlay } from "./dashboard/TaskBoard";
+import { NotificationBell } from "./dashboard/NotificationBell";
+import { CreateButton } from "./dashboard/TaskBoard";
+import { TaskBoardModal } from "./dashboard/TaskBoard";
 
 const API_URL = "https://9ehr6i4dpi.execute-api.us-east-1.amazonaws.com/dev";
-
-/**
- * Task status constants used throughout the application
- * @type {Object.<string, string>}
- */
-const TASK_STATUSES = {
-  BACKLOG: "BACKLOG", // Changed to uppercase
-  IN_PROGRESS: "IN_PROGRESS", // Changed to uppercase with underscore
-  IN_TESTING: "IN_TESTING", // Changed to uppercase with underscore
-  DONE: "DONE", // Changed to uppercase
-};
-
-// Add a display names mapping for UI
-const STATUS_DISPLAY_NAMES = {
-  BACKLOG: "Backlog",
-  IN_PROGRESS: "In Progress",
-  IN_TESTING: "In Testing",
-  DONE: "Done",
-};
-
-/**
- * Status color mapping for visual representation
- * @type {Object.<string, string>}
- */
-const statusColors = {
-  BACKLOG: "bg-slate-100 border-slate-200 hover:bg-slate-50",
-  IN_PROGRESS: "bg-blue-50 border-blue-200 hover:bg-blue-100",
-  IN_TESTING: "bg-amber-50 border-amber-200 hover:bg-amber-100",
-  DONE: "bg-emerald-50 border-emerald-200 hover:bg-emerald-100",
-};
-
-// Updated color scheme constants
-const THEME = {
-  light: {
-    bg: "bg-gradient-to-br from-slate-50 to-gray-100",
-    text: "text-slate-700",
-    accent: "text-indigo-600",
-    card: "bg-white",
-    hover: "hover:bg-slate-50",
-  },
-  dark: {
-    bg: "bg-gradient-to-br from-slate-800 to-slate-900",
-    text: "text-slate-200",
-    accent: "text-indigo-400",
-    card: "bg-slate-800",
-    hover: "hover:bg-slate-700",
-  },
-};
 
 /**
  * Dashboard Component - Main application dashboard for task management
@@ -150,7 +68,6 @@ const THEME = {
 const Dashboard = ({ userPool }) => {
   const [user, setUser] = useState(null);
   const [projects, setProjects] = useState([]);
-  const [tasks, setTasks] = useState([]);
   const [error, setError] = useState(null);
   const [sub, setSub] = useState(null);
   const [isDarkMode, setIsDarkMode] = useState(
@@ -191,16 +108,16 @@ const Dashboard = ({ userPool }) => {
   const [searchQuery, setSearchQuery] = useState("");
 
   const [isFetchingProjects, setIsFetchingProjects] = useState(false);
-  const [isFetchingTasks, setIsFetchingTasks] = useState(false);
 
-  const [globalTasks, setGlobalTasks] = useState({
-    byProject: {}, // Tasks organized by project
-    allTasks: [], // Flat array of all tasks
+  const navigate = useNavigate();
+
+  // Replace tasks state with useReducer
+  const [taskState, dispatchTasks] = useReducer(taskReducer, {
+    allTasks: [], // All tasks across all projects
+    tasksByProject: {}, // Tasks organized by project and status
     isLoading: false,
     error: null,
   });
-
-  const navigate = useNavigate();
 
   useEffect(() => {
     const currentUser = userPool.getCurrentUser();
@@ -223,6 +140,7 @@ const Dashboard = ({ userPool }) => {
     if (sub) {
       const fetchData = async () => {
         await fetchProjects();
+        await fetchAllTasks(); // Fetch all tasks after projects
         await fetchPendingInvites();
       };
       fetchData();
@@ -230,8 +148,8 @@ const Dashboard = ({ userPool }) => {
   }, [sub]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Add new function to fetch all tasks for all projects
-  const fetchAllTasks = async () => {
-    setGlobalTasks((prev) => ({ ...prev, isLoading: true }));
+  const fetchAllTasks = useCallback(async () => {
+    dispatchTasks({ type: "SET_LOADING" });
     try {
       const response = await fetch(
         `${API_URL}/tasks?all_projects=true&userId=${sub}`,
@@ -245,33 +163,13 @@ const Dashboard = ({ userPool }) => {
       if (!response.ok) throw new Error("Failed to fetch tasks");
       const data = await response.json();
 
-      // Organize tasks by project
-      const tasksByProject = data.reduce((acc, task) => {
-        if (!acc[task.project_id]) {
-          acc[task.project_id] = [];
-        }
-        acc[task.project_id].push(task);
-        return acc;
-      }, {});
-
-      setGlobalTasks({
-        byProject: tasksByProject,
-        allTasks: data,
-        isLoading: false,
-        error: null,
-      });
-
-      console.log("Updated global tasks:", { tasksByProject, allTasks: data });
+      dispatchTasks({ type: "SET_TASKS", tasks: data });
     } catch (err) {
       console.error("Error fetching all tasks:", err);
-      setGlobalTasks((prev) => ({
-        ...prev,
-        isLoading: false,
-        error: err.message,
-      }));
+      dispatchTasks({ type: "SET_ERROR", error: err.message });
       toast.error("Failed to fetch tasks");
     }
-  };
+  }, [sub]);
 
   // Update fetchProjects to also fetch all tasks after projects are loaded
   const fetchProjects = async () => {
@@ -297,50 +195,6 @@ const Dashboard = ({ userPool }) => {
     }
   };
 
-  // Update fetchTasks to also update allTasks
-  const fetchTasks = async (projectId) => {
-    setIsFetchingTasks(true);
-    try {
-      if (globalTasks.byProject[projectId]) {
-        setTasks(globalTasks.byProject[projectId]);
-        setIsFetchingTasks(false);
-        return;
-      }
-
-      const response = await fetch(
-        `${API_URL}/tasks?project_id=${projectId}&userId=${sub}`,
-        {
-          headers: {
-            "Content-Type": "application/json",
-          },
-        }
-      );
-      if (!response.ok) throw new Error("Failed to fetch tasks");
-      const data = await response.json();
-
-      if (Array.isArray(data)) {
-        setTasks(data);
-        // Update global tasks
-        setGlobalTasks((prev) => ({
-          ...prev,
-          byProject: {
-            ...prev.byProject,
-            [projectId]: data,
-          },
-          allTasks: [
-            ...prev.allTasks.filter((t) => t.project_id !== projectId),
-            ...data,
-          ],
-        }));
-      }
-    } catch (err) {
-      setError(err.message);
-      toast.error("Failed to fetch tasks");
-    } finally {
-      setIsFetchingTasks(false);
-    }
-  };
-
   const fetchPendingInvites = async () => {
     try {
       const response = await fetch(
@@ -356,7 +210,7 @@ const Dashboard = ({ userPool }) => {
   const deleteProject = async (projectId, userId) => {
     try {
       const response = await fetch(
-        `${API_URL}/projects?project_id=${projectId}&userId=${userId}`,
+        `${API_URL}/projects?project_id=${projectId}?userId=${userId}`,
         {
           method: "DELETE",
           headers: {
@@ -364,6 +218,7 @@ const Dashboard = ({ userPool }) => {
           },
         }
       );
+
       if (!response.ok) throw new Error("Failed to delete project");
 
       setProjects((prevProjects) =>
@@ -379,12 +234,30 @@ const Dashboard = ({ userPool }) => {
   };
 
   const handleDeleteProject = async () => {
-    if (selectedIds.projectToDelete) {
-      try {
-        await deleteProject(selectedIds.projectToDelete, sub);
-      } catch (err) {
-        setError(err.message || "Error deleting project");
-      }
+    if (!selectedIds.projectToDelete) return;
+
+    setIsLoading(true);
+    try {
+      await deleteProject(selectedIds.projectToDelete, sub);
+      // Update projects state
+      setProjects((prev) =>
+        prev.filter((p) => p.project_id !== selectedIds.projectToDelete)
+      );
+      // Reset states
+      setSelectedIds((prev) => ({
+        ...prev,
+        projectToDelete: null,
+        selectedProjectId: null,
+      }));
+      setModalState((prev) => ({
+        ...prev,
+        isDeleteConfirmationOpen: false,
+      }));
+      toast.success("Project deleted successfully");
+    } catch (err) {
+      toast.error(err.message || "Failed to delete project");
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -400,45 +273,38 @@ const Dashboard = ({ userPool }) => {
           },
         }
       );
-      if (!response.ok) throw new Error("Failed to delete task");
 
-      // Remove from current tasks
-      setTasks((prevTasks) =>
-        prevTasks.filter((task) => task.task_id !== taskId)
-      );
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData || "Failed to delete task");
+      }
 
-      // Remove from global tasks
-      setGlobalTasks((prev) => ({
-        allTasks: prev.allTasks.filter((task) => task.task_id !== taskId),
-        byProject: {
-          ...prev.byProject,
-          [projectId]: (prev.byProject[projectId] || []).filter(
-            (task) => task.task_id !== taskId
-          ),
-        },
-        isLoading: false,
-        error: null,
-      }));
+      // Update local state immediately for better UX
+      dispatchTasks({
+        type: "DELETE_TASK",
+        taskId: taskId,
+      });
 
-      setModalState({ ...modalState, isDeleteConfirmationOpen: false });
-      setSelectedIds({ ...selectedIds, taskToDelete: null });
+      setModalState((prev) => ({ ...prev, isDeleteConfirmationOpen: false }));
+      setSelectedIds((prev) => ({ ...prev, taskToDelete: null }));
       toast.success("Task deleted successfully");
     } catch (err) {
-      setError(err.message);
-      toast.error("Failed to delete task");
+      console.error("Error deleting task:", err);
+      toast.error(err.message || "Failed to delete task");
+      throw err;
     }
   };
 
   const handleDeleteTask = async () => {
-    if (selectedIds.taskToDelete) {
-      try {
-        await deleteTask(
-          selectedIds.taskToDelete,
-          selectedIds.selectedProjectId
-        );
-      } catch (err) {
-        setError(err.message || "Error deleting task");
-      }
+    if (!selectedIds.taskToDelete || !selectedIds.selectedProjectId) return;
+
+    setIsLoading(true);
+    try {
+      await deleteTask(selectedIds.taskToDelete, selectedIds.selectedProjectId);
+    } catch (err) {
+      // Error is already handled in deleteTask
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -447,12 +313,8 @@ const Dashboard = ({ userPool }) => {
    * @param {Event} e - Form submission event
    * @param {boolean} isUpdate - Flag indicating if this is an update operation
    */
-  const handleProjectSubmit = async (e, isUpdate = false) => {
-    e.preventDefault();
+  const handleProjectSubmit = async (formData, isUpdate) => {
     await withLoading(async () => {
-      const { newProjectName: name, newProjectDescription: description } =
-        formState;
-
       try {
         let url = `${API_URL}/projects`;
         if (isUpdate) {
@@ -461,12 +323,9 @@ const Dashboard = ({ userPool }) => {
 
         const response = await fetch(url, {
           method: isUpdate ? "PUT" : "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
+          headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            name,
-            description,
+            ...formData,
             userId: sub,
             project_id: isUpdate ? selectedIds.selectedProjectId : undefined,
           }),
@@ -478,37 +337,30 @@ const Dashboard = ({ userPool }) => {
           );
         }
 
-        // Refresh projects list
         await fetchProjects();
-
-        // Reset form and close modal
-        setFormState({
-          ...formState,
-          newProjectName: "",
-          newProjectDescription: "",
-        });
-        setModalState({ ...modalState, isProjectModalOpen: false });
-
+        setModalState((prev) => ({ ...prev, isProjectModalOpen: false }));
         toast.success(
           `Project ${isUpdate ? "updated" : "created"} successfully`
         );
       } catch (err) {
         setError(err.message);
         toast.error(`Failed to ${isUpdate ? "update" : "create"} project`);
-        throw err; // Re-throw to be caught by withLoading
+        throw err;
       }
     });
   };
 
-  // Update handleTaskSubmit to also update both tasks and globalTasks
-  const handleTaskSubmit = async (e, isUpdate = false) => {
-    e.preventDefault();
+  // Update handleTaskSubmit to properly handle task data
+  const handleTaskSubmit = async (e, formData, isUpdate = false) => {
+    e.preventDefault(); // Ensure preventDefault is called on the event object
     await withLoading(async () => {
-      const {
-        newTaskName: name,
-        newTaskDescription: description,
-        assignedTo: assigned_to,
-      } = formState;
+      const { name, description, assigned_to } = formData;
+
+      // Validate required fields
+      if (!name.trim()) {
+        toast.error("Task name is required");
+        return;
+      }
 
       try {
         const url = isUpdate
@@ -516,23 +368,21 @@ const Dashboard = ({ userPool }) => {
           : `${API_URL}/tasks`;
 
         const requestBody = {
-          name,
-          description,
+          name: name.trim(),
+          description: description.trim(),
           project_id: selectedIds.selectedProjectId,
           userId: sub,
-          assigned_to: assigned_to || null, // Send null if no assignee selected
-          status: "BACKLOG", // Always set for new tasks
+          assigned_to: assigned_to || null,
+          status: "BACKLOG",
         };
 
-        console.log("Sending task request:", {
-          url,
-          method: isUpdate ? "PUT" : "POST",
-          body: requestBody,
-        });
+        console.log("Creating/Updating task with:", requestBody);
 
         const response = await fetch(url, {
           method: isUpdate ? "PUT" : "POST",
-          headers: { "Content-Type": "application/json" },
+          headers: {
+            "Content-Type": "application/json",
+          },
           body: JSON.stringify(requestBody),
         });
 
@@ -544,56 +394,38 @@ const Dashboard = ({ userPool }) => {
         }
 
         const data = await response.json();
-        const newTask = data.task || data; // Handle both create and update responses
+        console.log("Server response:", data);
 
-        // Update current project tasks
+        // Ensure we have valid task data
+        const newTask = {
+          ...(data.task || data),
+          name: name.trim(),
+          description: description.trim(),
+          task_id: String(data.task_id || data.task?.task_id),
+          project_id: String(selectedIds.selectedProjectId),
+          created_by: sub,
+          creator_username: data.creator_username || null, // Use creator_username
+          assigned_to: assigned_to || null,
+          status: "BACKLOG",
+          assignee_username: data.assignee_username || null, // Add this line
+        };
+
+        // Update tasks state
         if (isUpdate) {
-          setTasks((prevTasks) =>
-            prevTasks.map((task) =>
+          dispatchTasks({
+            type: "SET_TASKS",
+            tasks: taskState.allTasks.map((task) =>
               task.task_id === selectedIds.selectedTaskId
                 ? { ...task, ...newTask }
                 : task
-            )
-          );
+            ),
+          });
         } else {
-          setTasks((prevTasks) => [...prevTasks, newTask]);
+          dispatchTasks({
+            type: "SET_TASKS",
+            tasks: [...taskState.allTasks, newTask],
+          });
         }
-
-        // Update global tasks state
-        setGlobalTasks((prev) => {
-          const updatedTasks = isUpdate
-            ? prev.allTasks.map((task) =>
-                task.task_id === selectedIds.selectedTaskId
-                  ? { ...task, ...newTask }
-                  : task
-              )
-            : [...prev.allTasks, newTask];
-
-          const updatedByProject = { ...prev.byProject };
-          if (isUpdate) {
-            // Update task in project
-            if (updatedByProject[selectedIds.selectedProjectId]) {
-              updatedByProject[selectedIds.selectedProjectId] =
-                updatedByProject[selectedIds.selectedProjectId].map((task) =>
-                  task.task_id === selectedIds.selectedTaskId
-                    ? { ...task, ...newTask }
-                    : task
-                );
-            }
-          } else {
-            // Add new task to project
-            if (!updatedByProject[selectedIds.selectedProjectId]) {
-              updatedByProject[selectedIds.selectedProjectId] = [];
-            }
-            updatedByProject[selectedIds.selectedProjectId].push(newTask);
-          }
-
-          return {
-            ...prev,
-            allTasks: updatedTasks,
-            byProject: updatedByProject,
-          };
-        });
 
         // Reset form and close modal
         setFormState({
@@ -612,6 +444,38 @@ const Dashboard = ({ userPool }) => {
         setError(err.message);
       }
     });
+  };
+
+  const handleProjectInvitation = async (projectId, inviteUserId) => {
+    if (!projectId || !inviteUserId) {
+      throw new Error("Project ID and User ID are required");
+    }
+
+    try {
+      const response = await fetch(`${API_URL}/invites`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          project_id: projectId,
+          invited_user_id: inviteUserId,
+          userId: sub, // Current user's ID
+        }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || "Failed to send invitation");
+      }
+
+      toast.success("Invitation sent successfully");
+      setShowInviteModal(false);
+      setInviteUserId("");
+    } catch (err) {
+      console.error("Error sending invitation:", err);
+      throw new Error(err.message || "Failed to send invitation");
+    }
   };
 
   const handleInviteUser = async (e) => {
@@ -715,336 +579,159 @@ const Dashboard = ({ userPool }) => {
     }
   };
 
-  /**
-   * Handles task drag and drop operations
-   * @param {Object} result - Drag end result object from react-beautiful-dnd
-   */
-  const handleDragEnd = async (result) => {
-    if (!result.destination) return;
-    await withLoading(async () => {
-      const { draggableId, source, destination } = result;
-      const task = tasks.find((t) => t.task_id === draggableId);
-
-      if (source.droppableId !== destination.droppableId) {
-        try {
-          await updateTaskStatus(
-            task.task_id,
-            destination.droppableId,
-            selectedIds.selectedProjectId
-          );
-
-          setTasks((prevTasks) =>
-            prevTasks.map((t) =>
-              t.task_id === task.task_id
-                ? { ...t, status: destination.droppableId }
-                : t
-            )
-          );
-        } catch (err) {
-          toast.error("Failed to update task status");
-          setError(err.message);
-        }
-      }
-    });
-  };
-
-  const updateTaskStatus = async (taskId, newStatus, projectId) => {
-    try {
-      const response = await fetch(`${API_URL}/tasks?task_id=${taskId}`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          status: newStatus,
-          project_id: projectId,
-          userId: sub,
-          assigned_to: tasks.find((t) => t.task_id === taskId)?.assigned_to,
-        }),
-      });
-
-      if (!response.ok) throw new Error("Failed to update task status");
-      const updatedTask = await response.json();
-
-      // Update both local and global task states
-      setTasks((prevTasks) =>
-        prevTasks.map((t) =>
-          t.task_id === taskId ? { ...t, ...updatedTask } : t
-        )
-      );
-
-      // Update global tasks state
-      setGlobalTasks((prev) => {
-        const updatedAllTasks = prev.allTasks.map((task) =>
-          task.task_id === taskId ? { ...task, ...updatedTask } : task
-        );
-
-        const updatedByProject = { ...prev.byProject };
-        if (updatedByProject[projectId]) {
-          updatedByProject[projectId] = updatedByProject[projectId].map(
-            (task) =>
-              task.task_id === taskId ? { ...task, ...updatedTask } : task
-          );
-        }
-
-        return {
-          ...prev,
-          allTasks: updatedAllTasks,
-          byProject: updatedByProject,
-        };
-      });
-
-      toast.success("Task status updated");
-    } catch (err) {
-      toast.error("Error updating task status");
-      console.error(err);
-    }
-  };
-
-  const handleProjectInvitation = async (projectId, inviteeId) => {
-    try {
-      const response = await fetch(`${API_URL}/invites`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          project_id: projectId,
-          invitee_id: inviteeId,
-          userId: sub,
-        }),
-      });
-
-      if (!response.ok) throw new Error("Failed to send invitation");
-      await fetchProjects(); // Refresh project data after invitation
-      toast.success("Invitation sent successfully");
-      setShowInviteModal(false);
-    } catch (err) {
-      toast.error("Error sending invitation");
-      console.error(err);
-    }
-  };
-
-  const handleTaskModalOpen = (projectId) => {
-    setSelectedIds({
-      ...selectedIds,
+  // Move useCallback hooks to the top, before any conditional returns
+  const handleTaskModalOpen = useCallback((projectId) => {
+    setSelectedIds((prev) => ({
+      ...prev,
       selectedProjectId: projectId,
-    });
-    fetchTasks(projectId);
-    setModalState({
-      ...modalState,
+    }));
+    setModalState((prev) => ({
+      ...prev,
       isTaskModalOpen: true,
-    });
-  };
+    }));
+  }, []); // Remove taskState.tasks dependency since we're using global state
 
-  const sortTasks = (tasks) => {
-    const sorted = {
-      [TASK_STATUSES.BACKLOG]: [],
-      [TASK_STATUSES.IN_PROGRESS]: [],
-      [TASK_STATUSES.IN_TESTING]: [],
-      [TASK_STATUSES.DONE]: [],
-    };
-
-    tasks.forEach((task) => {
-      // Ensure task has a valid status or default to BACKLOG
-      const status = Object.values(TASK_STATUSES).includes(task.status)
-        ? task.status
-        : TASK_STATUSES.BACKLOG;
-
-      sorted[status].push(task);
-    });
-
-    // Sort each status group by updated_at or created_at
-    Object.keys(sorted).forEach((status) => {
-      sorted[status].sort((a, b) => {
-        const dateA = new Date(a.updated_at || a.created_at);
-        const dateB = new Date(b.updated_at || b.created_at);
-        return dateB - dateA; // Most recent first
-      });
-    });
-
-    return sorted;
-  };
-
-  const tasksByStatus = sortTasks(tasks);
-
-  const handleEditTask = (task) => {
-    setSelectedIds({
-      ...selectedIds,
+  const handleEditTask = useCallback((task) => {
+    setSelectedIds((prev) => ({
+      ...prev,
       selectedTaskId: task.task_id,
-    });
-    setFormState({
+    }));
+    setFormState((prev) => ({
+      ...prev,
       newTaskName: task.name,
       newTaskDescription: task.description,
       assignedTo: task.assigned_to,
-    });
-    setModalState({
-      ...modalState,
+    }));
+    setModalState((prev) => ({
+      ...prev,
       isCreateTaskModalOpen: true,
-    });
-  };
+    }));
+  }, []);
 
-  const InvitationsModal = () => (
-    <EnhancedModal
-      title="Project Invitations"
-      onClose={() => setShowInvitesModal(false)}
-    >
-      {pendingInvites.length > 0 ? (
-        <div className="space-y-4">
-          {pendingInvites.map((invite) => (
-            <div
-              key={invite.project_id}
-              className="border rounded-lg p-4 bg-gray-50 hover:bg-gray-100 transition-colors"
-            >
-              <h4 className="font-semibold text-lg text-teal-700">
-                {invite.project_name}
-              </h4>
-              <p className="text-sm text-gray-600 mb-2">
-                {invite.project_description}
-              </p>
-              <p className="text-xs text-gray-500 mb-4">
-                Invited by: {invite.inviter_username}
-              </p>
-              <div className="flex gap-2">
-                <button
-                  onClick={() =>
-                    handleInviteResponse(invite.project_id, "ACCEPTED")
-                  }
-                  className="px-4 py-2 bg-teal-500 text-white rounded-lg hover:bg-teal-600 
-                            transition-colors flex-1 flex items-center justify-center gap-2"
-                >
-                  <FaCheck /> Accept
-                </button>
-                <button
-                  onClick={() =>
-                    handleInviteResponse(invite.project_id, "REJECTED")
-                  }
-                  className="px-4 py-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600 
-                            transition-colors flex-1 flex items-center justify-center gap-2"
-                >
-                  <FaTimes /> Decline
-                </button>
-              </div>
-            </div>
-          ))}
-        </div>
-      ) : (
-        <div className="text-center py-8">
-          <p className="text-gray-600 text-lg">No pending invitations</p>
-        </div>
-      )}
-    </EnhancedModal>
+  const handleDragEnd = useCallback(
+    async (result) => {
+      const { destination, source, draggableId } = result;
+
+      if (!destination || !draggableId) {
+        return;
+      }
+
+      const task = taskState.allTasks.find(
+        (t) => String(t.task_id) === String(draggableId)
+      );
+      console.log(task);
+      if (!task) {
+        console.error("Task not found:", draggableId);
+        return;
+      }
+
+      // Apply optimistic update
+      dispatchTasks({
+        type: "UPDATE_TASK_STATUS",
+        taskId: String(draggableId),
+        status: destination.droppableId,
+      });
+
+      try {
+        const response = await fetch(
+          `${API_URL}/tasks?task_id=${draggableId}`,
+          {
+            method: "PUT",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              task_id: String(draggableId),
+              project_id: String(task.project_id),
+              status: destination.droppableId,
+              userId: sub,
+              name: task.name,
+              description: task.description,
+              assigned_to: task.assigned_to,
+            }),
+          }
+        );
+
+        if (!response.ok) {
+          throw new Error("Failed to update task status");
+        }
+      } catch (error) {
+        // Revert on failure
+        dispatchTasks({
+          type: "UPDATE_TASK_STATUS",
+          taskId: String(draggableId),
+          status: source.droppableId,
+        });
+        toast.error(error.message);
+      }
+    },
+    [taskState.allTasks, sub]
   );
 
-  const ProjectForm = ({ initialData, onSubmit, isDarkMode }) => {
-    const [formData, setFormData] = useState({
-      name: initialData?.name || "",
-      description: initialData?.description || "",
-    });
+  // Update renderTaskBoard to use project-specific tasks
+  const renderTaskBoard = useCallback(() => {
+    if (taskState.isLoading) return <LoadingSpinner />;
 
-    const handleSubmit = (e) => {
-      e.preventDefault();
-      setFormState({
-        ...formState,
-        newProjectName: formData.name,
-        newProjectDescription: formData.description,
-      });
-      // Pass true to indicate this is an update if we have initialData
-      onSubmit(e, !!initialData);
+    const currentProject = projects.find(
+      (p) => String(p.project_id) === String(selectedIds.selectedProjectId)
+    );
+
+    // Get tasks for current project from tasksByProject
+    const projectTasks = taskState.tasksByProject[
+      selectedIds.selectedProjectId
+    ] || {
+      BACKLOG: [],
+      IN_PROGRESS: [],
+      IN_TESTING: [],
+      DONE: [],
     };
 
     return (
-      <form onSubmit={handleSubmit}>
-        <InputField
-          label="Project Name"
-          value={formData.name}
-          onChange={(e) =>
-            setFormData((prev) => ({ ...prev, name: e.target.value }))
-          }
-          isDarkMode={isDarkMode}
-        />
-        <TextAreaField
-          label="Description"
-          value={formData.description}
-          onChange={(e) =>
-            setFormData((prev) => ({ ...prev, description: e.target.value }))
-          }
-          isDarkMode={isDarkMode}
-        />
-        <ModalActions
-          onCancel={() =>
-            setModalState({ ...modalState, isProjectModalOpen: false })
-          }
-          submitLabel={initialData ? "Save Changes" : "Create Project"}
-          isDarkMode={isDarkMode}
-        />
-      </form>
+      <DragDropContext onDragEnd={handleDragEnd}>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 h-full">
+          {Object.entries(TASK_STATUSES).map(([_, status]) => (
+            <TaskColumn
+              key={status}
+              status={status}
+              tasks={projectTasks[status] || []}
+              onEditTask={handleEditTask}
+              onDeleteTask={(taskId) => {
+                setSelectedIds((prev) => ({
+                  ...prev,
+                  taskToDelete: taskId,
+                }));
+                setModalState((prev) => ({
+                  ...prev,
+                  isDeleteConfirmationOpen: true,
+                }));
+              }}
+              isDarkMode={isDarkMode}
+              projectMembers={currentProject?.members || []}
+            />
+          ))}
+        </div>
+      </DragDropContext>
     );
-  };
-
-  const TaskForm = ({
-    onSubmit,
-    initialData = {},
+  }, [
+    taskState.isLoading,
+    selectedIds.selectedProjectId,
+    taskState.tasksByProject,
+    projects,
     isDarkMode,
-    projectMembers = [],
-  }) => {
-    const [formData, setFormData] = useState({
-      name: initialData.name || "",
-      description: initialData.description || "",
-      assigned_to: initialData.assigned_to || "", // This should be the user_id, not username
-    });
+    handleEditTask,
+    handleDragEnd,
+  ]);
 
-    const handleSubmit = (e) => {
-      e.preventDefault();
-      setFormState({
-        newTaskName: formData.name,
-        newTaskDescription: formData.description,
-        assignedTo: formData.assigned_to,
-      });
-      onSubmit(e);
-    };
+  // Now we can have our conditional returns
+  if (isFetchingProjects) {
+    return <LoadingSpinner />;
+  }
 
-    return (
-      <form onSubmit={handleSubmit}>
-        <InputField
-          label="Task Name"
-          value={formData.name}
-          onChange={(e) =>
-            setFormData((prev) => ({ ...prev, name: e.target.value }))
-          }
-          isDarkMode={isDarkMode}
-          required
-        />
-        <TextAreaField
-          label="Description"
-          value={formData.description}
-          onChange={(e) =>
-            setFormData((prev) => ({ ...prev, description: e.target.value }))
-          }
-          isDarkMode={isDarkMode}
-        />
-        <SelectField
-          label="Assign To"
-          value={formData.assigned_to}
-          onChange={(e) =>
-            setFormData((prev) => ({ ...prev, assigned_to: e.target.value }))
-          }
-          options={[
-            { value: "", label: "Select an assignee" },
-            ...projectMembers.map((member) => ({
-              value: member.user_id, // Use the sub/user_id as the value
-              label: member.username, // Display the username as the label
-            })),
-          ]}
-          isDarkMode={isDarkMode}
-          required={false}
-        />
-        <ModalActions
-          onCancel={() =>
-            setModalState({ ...modalState, isCreateTaskModalOpen: false })
-          }
-          submitLabel={initialData.task_id ? "Save Changes" : "Create Task"}
-          isDarkMode={isDarkMode}
-        />
-      </form>
-    );
-  };
+  if (error) {
+    return <div className="text-red-500 p-4">Error: {error}</div>;
+  }
+
+  if (!user) {
+    return <LoadingSpinner />;
+  }
 
   const handleEditProject = (project) => {
     setSelectedIds({
@@ -1059,6 +746,20 @@ const Dashboard = ({ userPool }) => {
       ...modalState,
       isProjectModalOpen: true,
     });
+  };
+
+  const handleDeleteClick = (projectId) => {
+    // First set the project to delete
+    setSelectedIds((prev) => ({
+      ...prev,
+      projectToDelete: projectId,
+      selectedProjectId: projectId, // Also set this to ensure proper context
+    }));
+    // Then open the confirmation modal
+    setModalState((prev) => ({
+      ...prev,
+      isDeleteConfirmationOpen: true,
+    }));
   };
 
   const handleInviteModal = (projectId) => {
@@ -1137,65 +838,59 @@ const Dashboard = ({ userPool }) => {
     </EnhancedModal>
   );
 
-  const DeleteConfirmationModal = () => (
-    <EnhancedModal
-      title="Confirm Delete"
-      onClose={() =>
-        setModalState({ ...modalState, isDeleteConfirmationOpen: false })
-      }
-      isDarkMode={isDarkMode}
-    >
-      <div className="space-y-4">
-        <p>
-          Are you sure you want to delete this{" "}
-          {selectedIds.taskToDelete ? "task" : "project"}?
-        </p>
-        <div className="flex justify-end gap-2">
-          <button
-            onClick={() =>
-              setModalState({ ...modalState, isDeleteConfirmationOpen: false })
-            }
-            className="px-4 py-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600"
-          >
-            Cancel
-          </button>
-          <button
-            onClick={
-              selectedIds.taskToDelete ? handleDeleteTask : handleDeleteProject
-            }
-            className="px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600"
-          >
-            Delete
-          </button>
-        </div>
-      </div>
-    </EnhancedModal>
-  );
-
-  const renderTaskBoard = () => {
-    if (isFetchingTasks) {
-      return <LoadingSpinner />;
-    }
+  const DeleteConfirmationModal = () => {
+    const isProjectDelete = !!selectedIds.projectToDelete;
+    const itemType = isProjectDelete ? "project" : "task";
 
     return (
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 flex-grow overflow-hidden">
-        {Object.entries(tasksByStatus).map(([status, tasksInStatus]) => (
-          <TaskColumn
-            key={status}
-            status={status}
-            tasks={tasksInStatus}
-            onEditTask={handleEditTask}
-            onDeleteTask={(taskId) => {
-              setSelectedIds({ ...selectedIds, taskToDelete: taskId });
-              setModalState({ ...modalState, isDeleteConfirmationOpen: true });
-            }}
-            isDarkMode={isDarkMode}
-          />
-        ))}
-      </div>
+      <EnhancedModal
+        title={`Delete ${itemType}`}
+        onClose={() => {
+          setModalState((prev) => ({
+            ...prev,
+            isDeleteConfirmationOpen: false,
+          }));
+          setSelectedIds((prev) => ({
+            ...prev,
+            projectToDelete: null,
+            taskToDelete: null,
+          }));
+        }}
+        isDarkMode={isDarkMode}
+      >
+        <div className="space-y-4">
+          <p>Are you sure you want to delete this {itemType}?</p>
+          <p className="text-sm text-red-500">This action cannot be undone.</p>
+          <div className="flex justify-end gap-2">
+            <button
+              onClick={() => {
+                setModalState((prev) => ({
+                  ...prev,
+                  isDeleteConfirmationOpen: false,
+                }));
+                setSelectedIds((prev) => ({
+                  ...prev,
+                  projectToDelete: null,
+                  taskToDelete: null,
+                }));
+              }}
+              className="px-4 py-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={isProjectDelete ? handleDeleteProject : handleDeleteTask}
+              className="px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600"
+            >
+              Delete
+            </button>
+          </div>
+        </div>
+      </EnhancedModal>
     );
   };
 
+  // Update components to use the memoized callbacks
   return (
     <div
       className={`min-h-screen ${darkModeClasses} transition-all duration-300`}
@@ -1207,11 +902,13 @@ const Dashboard = ({ userPool }) => {
         userPool={userPool}
         isDarkMode={isDarkMode}
         toggleDarkMode={toggleDarkMode}
-        className="backdrop-blur-sm bg-white/80 dark:bg-slate-900/80"
+        className="backdrop-blur-sm bg-white/80 dark:bg-slate-900/80 z-40"
       />
       <Toaster position="top-right" />
 
-      <main className="container mx-auto px-4 py-8 pt-20">
+      <main className="container mx-auto px-4 py-8">
+        {" "}
+        {/* Removed pt-32 */}
         {/* Add Analytics Tab/Section */}
         <motion.section className="space-y-8 mb-12">
           <div className="flex justify-between items-center">
@@ -1224,12 +921,11 @@ const Dashboard = ({ userPool }) => {
             </h2>
           </div>
           <AnalyticsDashboard
-            tasks={globalTasks.allTasks} // Pass allTasks instead of tasks
+            tasks={taskState.allTasks} // Use taskState instead of globalTasks
             projects={projects}
             isDarkMode={isDarkMode}
           />
         </motion.section>
-
         {/* Projects Section */}
         <motion.section className="space-y-8">
           {/* Header */}
@@ -1265,7 +961,7 @@ const Dashboard = ({ userPool }) => {
                 key={project.project_id}
                 project={project}
                 onEdit={() => handleEditProject(project)}
-                onDelete={() => handleDeleteProject(project.project_id)}
+                onDelete={() => handleDeleteClick(project.project_id)}
                 onViewTasks={() => handleTaskModalOpen(project.project_id)}
                 onInvite={() => handleInviteModal(project.project_id)}
                 isDarkMode={isDarkMode}
@@ -1273,7 +969,6 @@ const Dashboard = ({ userPool }) => {
             ))}
           </div>
         </motion.section>
-
         {/* Modals */}
         <AnimatePresence>
           {modalState.isProjectModalOpen && (
@@ -1291,6 +986,12 @@ const Dashboard = ({ userPool }) => {
               <ProjectForm
                 initialData={selectedProject}
                 onSubmit={handleProjectSubmit}
+                onCancel={() =>
+                  setModalState((prev) => ({
+                    ...prev,
+                    isProjectModalOpen: false,
+                  }))
+                }
                 isDarkMode={isDarkMode}
               />
             </EnhancedModal>
@@ -1299,13 +1000,16 @@ const Dashboard = ({ userPool }) => {
           {modalState.isTaskModalOpen && (
             <TaskBoardModal
               onClose={() =>
-                setModalState({ ...modalState, isTaskModalOpen: false })
+                setModalState((prev) => ({ ...prev, isTaskModalOpen: false }))
               }
               onCreateTask={() =>
-                setModalState({ ...modalState, isCreateTaskModalOpen: true })
+                setModalState((prev) => ({
+                  ...prev,
+                  isCreateTaskModalOpen: true,
+                }))
               }
               isDarkMode={isDarkMode}
-              onDragEnd={handleDragEnd} // Pass handleDragEnd here
+              project={selectedProject}
             >
               {renderTaskBoard()}
             </TaskBoardModal>
@@ -1320,8 +1024,8 @@ const Dashboard = ({ userPool }) => {
               isDarkMode={isDarkMode}
             >
               <TaskForm
-                onSubmit={(e) =>
-                  handleTaskSubmit(e, !!selectedIds.selectedTaskId)
+                onSubmit={(e, formData) =>
+                  handleTaskSubmit(e, formData, !!selectedIds.selectedTaskId)
                 }
                 initialData={
                   selectedIds.selectedTaskId
@@ -1332,6 +1036,9 @@ const Dashboard = ({ userPool }) => {
                         task_id: selectedIds.selectedTaskId,
                       }
                     : {}
+                }
+                onCancel={() =>
+                  setModalState({ ...modalState, isCreateTaskModalOpen: false })
                 }
                 isDarkMode={isDarkMode}
                 projectMembers={
@@ -1344,7 +1051,13 @@ const Dashboard = ({ userPool }) => {
           )}
 
           {showInviteModal && <InviteUserModal />}
-          {showInvitesModal && <InvitationsModal />}
+          {showInvitesModal && (
+            <InvitationsModal
+              pendingInvites={pendingInvites}
+              onClose={() => setShowInvitesModal(false)}
+              onResponse={handleInviteResponse}
+            />
+          )}
           {modalState.isDeleteConfirmationOpen && <DeleteConfirmationModal />}
         </AnimatePresence>
       </main>
@@ -1352,404 +1065,4 @@ const Dashboard = ({ userPool }) => {
   );
 };
 
-const TaskBoardModal = ({
-  title,
-  onClose,
-  onCreateTask,
-  isDarkMode,
-  children,
-  onDragEnd, // Add this prop
-}) => (
-  <EnhancedModal
-    title="Project Tasks"
-    onClose={onClose}
-    maxWidth="max-w-screen-2xl"
-    customStyles="mt-16"
-    isDarkMode={isDarkMode}
-  >
-    <div className="flex flex-col h-[80vh]">
-      <div className="flex justify-between items-center mb-6 sticky top-0 bg-white dark:bg-slate-800 z-10 py-4">
-        <h3
-          className={`text-xl font-semibold ${
-            isDarkMode ? "text-slate-200" : "text-slate-700"
-          }`}
-        >
-          Tasks Board
-        </h3>
-        <CreateButton
-          onClick={onCreateTask}
-          label="New Task"
-          icon={<FaPlusCircle />}
-          isDarkMode={isDarkMode}
-        />
-      </div>
-      <DragDropContext onDragEnd={onDragEnd}>{children}</DragDropContext>
-    </div>
-  </EnhancedModal>
-);
-
-const ProjectCard = ({
-  project,
-  onEdit,
-  onDelete,
-  onViewTasks,
-  onInvite,
-  isDarkMode,
-}) => (
-  <motion.div
-    layout
-    initial={{ opacity: 0, scale: 0.95 }}
-    animate={{ opacity: 1, scale: 1 }}
-    exit={{ opacity: 0, scale: 0.95 }}
-    className={`
-      ${isDarkMode ? THEME.dark.card : THEME.light.card}
-      rounded-xl shadow-lg hover:shadow-xl transition-all duration-300
-      border border-slate-200 dark:border-slate-700
-      p-6 flex flex-col gap-4
-    `}
-  >
-    {/* Card content with enhanced styling */}
-    <div className="flex items-start justify-between">
-      <div>
-        <h3
-          className={`text-xl font-semibold ${
-            isDarkMode ? THEME.dark.text : THEME.light.text
-          }`}
-        >
-          {project.name}
-        </h3>
-        <p className="text-slate-500 dark:text-slate-400 mt-2 line-clamp-2">
-          {project.description}
-        </p>
-      </div>
-      <ProjectMenu
-        onEdit={onEdit}
-        onDelete={onDelete}
-        onViewTasks={onViewTasks}
-        onInvite={onInvite}
-        isDarkMode={isDarkMode}
-      />
-    </div>
-
-    {/* Project metadata */}
-    <div className="flex items-center gap-4 mt-auto pt-4 border-t border-slate-200 dark:border-slate-700">
-      <MemberCount
-        count={project.members?.length || 1}
-        isDarkMode={isDarkMode}
-      />
-      <RoleBadge role={project.role} isDarkMode={isDarkMode} />
-    </div>
-  </motion.div>
-);
-
-// ... Continue with other enhanced component definitions ...
-
-// Add new utility components for consistency and reusability
-const CreateButton = ({ onClick, label, icon, isDarkMode }) => (
-  <motion.button
-    whileHover={{ scale: 1.05 }}
-    whileTap={{ scale: 0.95 }}
-    onClick={onClick}
-    className={`
-      flex items-center gap-2 px-4 py-2 rounded-lg
-      ${
-        isDarkMode
-          ? "bg-indigo-600 hover:bg-indigo-700"
-          : "bg-indigo-500 hover:bg-indigo-600"
-      }
-      text-white font-medium shadow-lg hover:shadow-xl
-      transition-all duration-300
-    `}
-  >
-    {icon}
-    <span>{label}</span>
-  </motion.button>
-);
-
-const NotificationBell = ({ count, onClick, isDarkMode }) => (
-  <motion.button
-    whileHover={{ scale: 1.05 }}
-    whileTap={{ scale: 0.95 }}
-    onClick={onClick}
-    className={`relative p-3 rounded-full ${
-      isDarkMode
-        ? "bg-slate-700 hover:bg-slate-600"
-        : "bg-white hover:bg-slate-50"
-    } shadow-lg transition-all duration-300`}
-  >
-    <FaBell
-      className={`${count > 0 ? "text-indigo-500" : "text-slate-400"} text-xl`}
-    />
-    {count > 0 && (
-      <span
-        className="absolute -top-1 -right-1 bg-red-500 text-white rounded-full w-5 h-5 
-                      text-xs flex items-center justify-center animate-bounce"
-      >
-        {count}
-      </span>
-    )}
-  </motion.button>
-);
-
-const ProjectMenu = ({
-  onEdit,
-  onDelete,
-  onViewTasks,
-  onInvite,
-  isDarkMode,
-}) => (
-  <Menu
-    menuButton={
-      <motion.button
-        whileHover={{ scale: 1.05 }}
-        whileTap={{ scale: 0.95 }}
-        className={`p-2 rounded-lg ${
-          isDarkMode ? "hover:bg-slate-700" : "hover:bg-slate-100"
-        } transition-colors`}
-      >
-        <FaEllipsisV
-          className={isDarkMode ? "text-slate-400" : "text-slate-600"}
-        />
-      </motion.button>
-    }
-    transition
-    className="z-50"
-  >
-    <MenuItem onClick={onEdit}>
-      <FaEdit className="mr-2" /> Edit
-    </MenuItem>
-    <MenuItem onClick={onDelete}>
-      <FaTrashAlt className="mr-2" /> Delete
-    </MenuItem>
-    <MenuItem onClick={onViewTasks}>
-      <FaTasks className="mr-2" /> Tasks
-    </MenuItem>
-    <MenuItem onClick={onInvite}>
-      <FaUserPlus className="mr-2" /> Invite
-    </MenuItem>
-  </Menu>
-);
-
-const TaskColumn = ({
-  status,
-  tasks,
-  onEditTask,
-  onDeleteTask,
-  isDarkMode,
-}) => (
-  <Droppable droppableId={status}>
-    {(provided, snapshot) => (
-      <div
-        ref={provided.innerRef}
-        {...provided.droppableProps}
-        className={`
-          flex flex-col rounded-lg border-2
-          ${statusColors[status]}
-          ${
-            snapshot.isDraggingOver
-              ? isDarkMode
-                ? "bg-slate-700"
-                : "bg-slate-50"
-              : ""
-          }
-          p-4 overflow-hidden
-        `}
-      >
-        <h4
-          className={`font-semibold mb-4 ${
-            isDarkMode ? "text-slate-200" : "text-slate-700"
-          } sticky top-0 bg-inherit z-10 flex items-center justify-between py-2`}
-        >
-          {STATUS_DISPLAY_NAMES[status]}
-          <span
-            className={`${
-              isDarkMode ? "bg-slate-600" : "bg-slate-200"
-            } px-3 py-1 rounded-full text-sm`}
-          >
-            {tasks.length}
-          </span>
-        </h4>
-
-        <div className="overflow-y-auto flex-grow space-y-3">
-          {tasks.map((task, index) => (
-            <TaskCard
-              key={task.task_id}
-              task={task}
-              index={index}
-              onEdit={() => onEditTask(task)}
-              onDelete={() => onDeleteTask(task.task_id)}
-              isDarkMode={isDarkMode}
-            />
-          ))}
-          {provided.placeholder}
-        </div>
-      </div>
-    )}
-  </Droppable>
-);
-
-const TaskCard = ({ task, index, onEdit, onDelete, isDarkMode }) => (
-  <Draggable draggableId={task.task_id} index={index}>
-    {(provided, snapshot) => (
-      <motion.div
-        ref={provided.innerRef}
-        {...provided.draggableProps}
-        {...provided.dragHandleProps}
-        className={`
-          p-4 rounded-lg shadow-sm
-          ${
-            isDarkMode
-              ? "bg-slate-700 hover:bg-slate-600"
-              : "bg-white hover:bg-slate-50"
-          }
-          ${snapshot.isDragging ? "shadow-lg" : "hover:shadow-md"}
-          transition-all duration-200
-        `}
-      >
-        <div className="flex justify-between items-start">
-          <h5
-            className={`font-medium ${
-              isDarkMode ? "text-slate-200" : "text-slate-800"
-            }`}
-          >
-            {task.name}
-          </h5>
-          <div className="flex gap-2">
-            <IconButton
-              icon={<FaEdit />}
-              onClick={onEdit}
-              className={
-                isDarkMode
-                  ? "text-slate-400 hover:text-slate-200"
-                  : "text-slate-600 hover:text-slate-800"
-              }
-            />
-            <IconButton
-              icon={<FaTrashAlt />}
-              onClick={onDelete}
-              className="text-red-400 hover:text-red-600"
-            />
-          </div>
-        </div>
-
-        {task.assignee_username && (
-          <span
-            className={`
-            text-xs px-2 py-1 rounded-full mt-2 inline-block
-            ${
-              isDarkMode
-                ? "bg-slate-600 text-slate-200"
-                : "bg-slate-100 text-slate-600"
-            }
-          `}
-          >
-            {task.assignee_username}
-          </span>
-        )}
-
-        <p
-          className={`text-sm mt-2 ${
-            isDarkMode ? "text-slate-400" : "text-slate-600"
-          }`}
-        >
-          {task.description}
-        </p>
-      </motion.div>
-    )}
-  </Draggable>
-);
-
-const LoadingOverlay = ({ isDarkMode }) => (
-  <div
-    className={`
-    fixed inset-0 flex items-center justify-center z-50
-    ${isDarkMode ? "bg-slate-900/80" : "bg-white/80"} backdrop-blur-sm
-  `}
-  >
-    <LoadingSpinner />
-  </div>
-);
-
 export default Dashboard;
-
-const EnhancedModal = ({
-  title,
-  children,
-  onClose,
-  maxWidth = "max-w-md",
-  customStyles = "",
-  isDarkMode,
-}) => (
-  <motion.div
-    initial={{ opacity: 0 }}
-    animate={{ opacity: 1 }}
-    exit={{ opacity: 0 }}
-    className="fixed inset-0 bg-black/50 backdrop-blur-sm flex justify-center items-center overflow-y-auto p-4 z-50"
-  >
-    <motion.div
-      initial={{ scale: 0.9, y: 20 }}
-      animate={{ scale: 1, y: 0 }}
-      exit={{ scale: 0.9, y: 20 }}
-      className={`
-        ${isDarkMode ? THEME.dark.card : THEME.light.card}
-        rounded-xl shadow-2xl w-full ${maxWidth} p-6 my-20 max-h-[85vh] overflow-y-auto ${customStyles}
-      `}
-    >
-      <div className="flex justify-between items-center mb-4">
-        <h2
-          className={`text-2xl font-semibold ${
-            isDarkMode ? THEME.dark.text : THEME.light.text
-          }`}
-        >
-          {title}
-        </h2>
-        <button
-          onClick={onClose}
-          className={`${
-            isDarkMode ? "text-slate-400" : "text-slate-500"
-          } hover:text-red-500`}
-        >
-          <FaTimesCircle size={24} />
-        </button>
-      </div>
-      {children}
-    </motion.div>
-  </motion.div>
-);
-
-const MemberCount = ({ count, isDarkMode }) => (
-  <div
-    className={`flex items-center gap-2 ${
-      isDarkMode ? "text-slate-400" : "text-slate-600"
-    }`}
-  >
-    <FaUserPlus />
-    <span>
-      {count} member{count !== 1 ? "s" : ""}
-    </span>
-  </div>
-);
-
-const RoleBadge = ({ role, isDarkMode }) => (
-  <span
-    className={`
-    px-3 py-1 rounded-full text-sm font-medium
-    ${
-      isDarkMode ? "bg-slate-700 text-slate-200" : "bg-slate-100 text-slate-700"
-    }
-  `}
-  >
-    {role}
-  </span>
-);
-
-const IconButton = ({ icon, onClick, className, label }) => (
-  <button
-    onClick={onClick}
-    className={`inline-flex items-center justify-center ${className}`}
-    title={label}
-  >
-    {icon}
-    {label && <span className="ml-2">{label}</span>}
-  </button>
-);

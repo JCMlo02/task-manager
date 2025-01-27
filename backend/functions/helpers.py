@@ -123,19 +123,49 @@ def get_tasks(event, user_id):
     try:
         project_id = event.get('queryStringParameters', {}).get('project_id', None)
         all_projects = event.get('queryStringParameters', {}).get('all_projects', 'false')
-        
+
         if all_projects.lower() == 'true':
-            # Get all tasks for all projects the user is a member of
-            response = task_table.query(
-                IndexName='user_id-index',
-                KeyConditionExpression=Key('user_id').eq(user_id)
+            # Get all projects where user is a member (including ACCEPTED members)
+            member_projects = project_members_table.query(
+                IndexName='user-projects-index',
+                KeyConditionExpression=Key('user_id').eq(user_id),
+                FilterExpression='#status IN (:owner, :member)',
+                ExpressionAttributeNames={'#status': 'status'},
+                ExpressionAttributeValues={':owner': 'OWNER', ':member': 'ACCEPTED'}
             )
+
+            all_tasks = []
+            for member in member_projects['Items']:
+                project_id = member['project_id']
+                # Get tasks for each project
+                project_tasks = task_table.query(
+                    KeyConditionExpression=Key('project_id').eq(project_id),
+                    IndexName='project-id-index'
+                )
+                all_tasks.extend(project_tasks.get('Items', []))
+
         elif project_id:
-            # Get tasks for specific project
+            # Verify user is a member of the project (OWNER or ACCEPTED)
+            member = project_members_table.get_item(
+                Key={
+                    'project_id': project_id,
+                    'user_id': user_id
+                }
+            ).get('Item')
+
+            if not member or member['status'] not in ['OWNER', 'ACCEPTED']:
+                return {
+                    'statusCode': 403,
+                    'body': json.dumps('Not authorized to view tasks in this project'),
+                    'headers': CORS_HEADERS
+                }
+
+            # Get ALL tasks for the project, regardless of who created them
             response = task_table.query(
-                IndexName='user_id-index',
-                KeyConditionExpression=Key('user_id').eq(user_id) & Key('project_id').eq(project_id)
+                KeyConditionExpression=Key('project_id').eq(project_id),
+                IndexName='project-id-index'
             )
+            all_tasks = response.get('Items', [])
         else:
             return {
                 'statusCode': 400,
@@ -143,16 +173,18 @@ def get_tasks(event, user_id):
                 'headers': CORS_HEADERS
             }
 
-        tasks = response['Items']
-        # Enrich tasks with assignee details
-        for task in tasks:
-            if task.get('assigned_to'):
+        # Enrich tasks with user details
+        for task in all_tasks:
+            if task.get('user_id'):  # Creator
+                creator_details = get_user_details(task['user_id'])
+                task['creator_username'] = creator_details['username']
+            if task.get('assigned_to'):  # Assignee
                 assignee_details = get_user_details(task['assigned_to'])
                 task['assignee_username'] = assignee_details['username']
 
         return {
             'statusCode': 200,
-            'body': json.dumps(tasks),
+            'body': json.dumps(all_tasks),
             'headers': CORS_HEADERS
         }
     except ClientError as e:
@@ -174,8 +206,8 @@ def update_task(event, user_id):
                 'body': json.dumps('Missing task_id or project_id'),
                 'headers': CORS_HEADERS
             }
-            
-        # Verify project membership
+        
+        # Verify project membership with proper status check
         member = project_members_table.get_item(
             Key={
                 'project_id': project_id,
@@ -189,31 +221,8 @@ def update_task(event, user_id):
                 'body': json.dumps('Not authorized to update tasks in this project'),
                 'headers': CORS_HEADERS
             }
-            
-        # Rest of the update logic...
-        # ...existing code...
-        # Clean up assigned_to value
-        if 'assigned_to' in body:
-            assigned_to = body['assigned_to']
-            if not assigned_to:  # If it's empty string, None, or falsy
-                body['assigned_to'] = None  # Set to None instead of empty string
-            else:
-                # Verify user is member of project
-                member = project_members_table.get_item(
-                    Key={
-                        'project_id': project_id,
-                        'user_id': assigned_to
-                    }
-                ).get('Item')
-                
-                if not member or member['status'] not in ['OWNER', 'ACCEPTED']:
-                    return {
-                        'statusCode': 400,
-                        'body': json.dumps('Cannot assign task to non-project member'),
-                        'headers': CORS_HEADERS
-                    }
 
-        # Rest of update logic
+        # Update task
         update_expr = []
         expr_values = {':updated_at': datetime.now().isoformat()}
         expr_names = {'#updated_at': 'updated_at'}
@@ -237,8 +246,9 @@ def update_task(event, user_id):
             ReturnValues='ALL_NEW'
         )
         
-        # Add assignee username to response if task is assigned
         updated_task = response['Attributes']
+        
+        # Add user details to response
         if updated_task.get('assigned_to'):
             assignee_details = get_user_details(updated_task['assigned_to'])
             updated_task['assignee_username'] = assignee_details['username']
@@ -260,48 +270,61 @@ def delete_task(event, user_id):
         task_id = event['queryStringParameters'].get('task_id')
         project_id = event['queryStringParameters'].get('project_id')
         
-        # Check if the task exists
-        response = task_table.get_item(
-            Key={'task_id': task_id, 'project_id': project_id}
-        )
+        if not task_id or not project_id:
+            return {
+                'statusCode': 400,
+                'body': json.dumps('Missing task_id or project_id'),
+                'headers': CORS_HEADERS
+            }
+
+        # First verify user is project member
+        member = project_members_table.get_item(
+            Key={
+                'project_id': project_id,
+                'user_id': user_id
+            }
+        ).get('Item')
         
-        if 'Item' not in response:
+        if not member or member['status'] not in ['OWNER', 'ACCEPTED']:
+            return {
+                'statusCode': 403,
+                'body': json.dumps('Not authorized to delete tasks in this project'),
+                'headers': CORS_HEADERS
+            }
+
+        # Check if the task exists
+        task = task_table.get_item(
+            Key={
+                'task_id': task_id,
+                'project_id': project_id
+            }
+        ).get('Item')
+        
+        if not task:
             return {
                 'statusCode': 404,
                 'body': json.dumps('Task not found'),
-                'headers': {
-                    'Access-Control-Allow-Headers': 'Content-Type',
-                    'Access-Control-Allow-Origin': '*',
-                    'Access-Control-Allow-Methods': '*'
-                },
+                'headers': CORS_HEADERS
             }
 
-        # Using correct key structure for Tasks table
+        # Delete the task
         task_table.delete_item(
             Key={
-                'task_id': task_id,  # Hash key
-                'project_id': project_id  # Range key
+                'task_id': task_id,
+                'project_id': project_id
             }
         )
 
         return {
             'statusCode': 200,
             'body': json.dumps({'message': 'Task deleted successfully'}),
-            'headers': {
-                'Access-Control-Allow-Headers': 'Content-Type',
-                'Access-Control-Allow-Origin': '*',
-                'Access-Control-Allow-Methods': '*'
-            },
+            'headers': CORS_HEADERS
         }
     except ClientError as e:
         return {
             'statusCode': 500,
             'body': json.dumps(f"Error deleting task: {e.response['Error']['Message']}"),
-            'headers': {
-                'Access-Control-Allow-Headers': 'Content-Type',
-                'Access-Control-Allow-Origin': '*',
-                'Access-Control-Allow-Methods': '*'
-            },
+            'headers': CORS_HEADERS
         }
 
 # ------------------------- Project CRUD Functions --------------------------
@@ -468,31 +491,67 @@ def update_project(event, user_id):
 def delete_project(event, user_id):
     try:
         project_id = event['queryStringParameters'].get('project_id')
-        # Using correct key structure for Projects table
+        
+        # First verify user is project owner
+        member = project_members_table.get_item(
+            Key={
+                'project_id': project_id,
+                'user_id': user_id
+            }
+        ).get('Item')
+        
+        if not member or member['status'] != 'OWNER':
+            return {
+                'statusCode': 403,
+                'body': json.dumps('Only project owner can delete project'),
+                'headers': CORS_HEADERS
+            }
+
+        # Delete all project members
+        members_response = project_members_table.query(
+            KeyConditionExpression=Key('project_id').eq(project_id)
+        )
+        
+        for member_item in members_response['Items']:
+            project_members_table.delete_item(
+                Key={
+                    'project_id': project_id,
+                    'user_id': member_item['user_id']
+                }
+            )
+
+        # Delete all tasks in the project
+        tasks_response = task_table.query(
+            IndexName='project-id-index',
+            KeyConditionExpression=Key('project_id').eq(project_id)
+        )
+        
+        for task in tasks_response['Items']:
+            task_table.delete_item(
+                Key={
+                    'task_id': task['task_id'],
+                    'project_id': project_id
+                }
+            )
+
+        # Finally delete the project
         project_table.delete_item(
             Key={
-                'user_id': user_id,  # Hash key
-                'project_id': project_id  # Range key
+                'project_id': project_id,
+                'user_id': user_id
             }
         )
+
         return {
             'statusCode': 200,
             'body': json.dumps({'message': 'Project deleted successfully'}),
-            'headers': {
-                'Access-Control-Allow-Headers': 'Content-Type',
-                'Access-Control-Allow-Origin': '*',
-                'Access-Control-Allow-Methods': '*'
-            }
+            'headers': CORS_HEADERS
         }
     except ClientError as e:
         return {
             'statusCode': 500,
             'body': json.dumps(f"Error deleting project: {e.response['Error']['Message']}"),
-            'headers': {
-                'Access-Control-Allow-Headers': 'Content-Type',
-                'Access-Control-Allow-Origin': '*',
-                'Access-Control-Allow-Methods': '*'
-            }
+            'headers': CORS_HEADERS
         }
 
 def invite_user(event, user_id):

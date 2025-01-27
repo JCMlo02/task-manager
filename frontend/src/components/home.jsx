@@ -5,6 +5,9 @@ import Countdown from "react-countdown";
 import { testimonials } from "../assets/testimonials";
 import Navbar from "./Navbar";
 import tikiLogo from "../assets/nobgLogo.png";
+// import screenshot1 from "../assets/screenshot1.png";
+// import screenshot2 from "../assets/screenshot2.png";
+// import screenshot3 from "../assets/screenshot3.png";
 
 const THEME = {
   light: {
@@ -44,6 +47,25 @@ const features = [
   },
 ];
 
+const screenshots = [
+  {
+    image: "screenshot1",
+    title: "Task Board View",
+    description: "Organize tasks with our intuitive kanban board interface",
+  },
+  {
+    image: "screenshot2",
+    title: "Progress Tracking",
+    description:
+      "Monitor project progress with detailed analytics about overall tasks",
+  },
+  {
+    image: "screenshot3",
+    title: "Project Management",
+    description: "Manage projects, invite members and assign tasks efficiently",
+  },
+];
+
 const HomePage = ({ userPool }) => {
   const navigate = useNavigate();
   const savedDarkMode = localStorage.getItem("isDarkMode") === "true";
@@ -69,7 +91,7 @@ const HomePage = ({ userPool }) => {
 
   // Check if the user is logged in
   useEffect(() => {
-    const currentUser = userPool?.getCurrentUser(); // This method assumes you're using AWS Cognito
+    const currentUser = userPool?.getCurrentUser();
     if (currentUser) {
       navigate("/dashboard"); // Redirect to /dashboard if the user is logged in
     }
@@ -199,9 +221,10 @@ const HomePage = ({ userPool }) => {
           </motion.div>
         </motion.div>
 
-        {/* Floating Elements Animation */}
         <FloatingElements isDarkMode={isDarkMode} />
       </motion.section>
+
+      <ShowcaseSection isDarkMode={isDarkMode} />
 
       {/* Features Section */}
       <motion.section
@@ -244,11 +267,64 @@ const HomePage = ({ userPool }) => {
         isDarkMode={isDarkMode}
       />
 
-      {/* Enhanced Footer */}
       <Footer isDarkMode={isDarkMode} />
     </motion.div>
   );
 };
+
+const ShowcaseSection = ({ isDarkMode }) => (
+  <motion.section
+    initial={{ opacity: 0 }}
+    whileInView={{ opacity: 1 }}
+    viewport={{ once: true }}
+    className={`py-24 px-4 ${isDarkMode ? "bg-slate-800" : "bg-white"}`}
+  >
+    <div className="max-w-7xl mx-auto">
+      <SectionHeader
+        title="In Action"
+        subtitle="Discover how our platform can transform your workflow"
+        isDarkMode={isDarkMode}
+      />
+
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mt-16">
+        {screenshots.map((item, index) => (
+          <motion.div
+            key={index}
+            initial={{ opacity: 0, y: 20 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            transition={{ delay: index * 0.2 }}
+            className="rounded-2xl overflow-hidden shadow-xl"
+          >
+            <div className="relative aspect-video">
+              <img
+                src={item.image}
+                alt={item.title}
+                className="w-full h-full object-cover"
+              />
+            </div>
+            <div className={`p-6 ${isDarkMode ? "bg-slate-700" : "bg-white"}`}>
+              <h3
+                className={`text-xl font-semibold mb-2 ${
+                  isDarkMode ? "text-white" : "text-slate-800"
+                }`}
+              >
+                {item.title}
+              </h3>
+              <p
+                className={`${
+                  isDarkMode ? "text-slate-300" : "text-slate-600"
+                }`}
+              >
+                {item.description}
+              </p>
+            </div>
+          </motion.div>
+        ))}
+      </div>
+    </div>
+  </motion.section>
+);
 
 const FloatingElements = ({ isDarkMode }) => (
   <div className="absolute inset-0 overflow-hidden pointer-events-none">
@@ -412,7 +488,7 @@ const PricingSection = ({ countdownDate, renderer, isDarkMode }) => (
       <p className="text-xl text-white/90 mb-8">
         Get started today and enjoy premium features!
       </p>
-      <div className="bg-white/10 backdrop-blur-sm rounded-xl p-6 inline-block mb-8">
+      <div className="bg-white/10 backdrop-blur-sm rounded-xl text-white p-6 inline-block mb-8">
         <Countdown
           date={countdownDate}
           renderer={renderer}
