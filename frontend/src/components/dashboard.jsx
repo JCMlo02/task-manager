@@ -1,4 +1,10 @@
-import React, { useEffect, useState, useReducer, useCallback } from "react";
+import React, {
+  useEffect,
+  useState,
+  useReducer,
+  useCallback,
+  useMemo,
+} from "react";
 import { useNavigate } from "react-router-dom";
 import Navbar from "./Navbar";
 import { motion, AnimatePresence } from "framer-motion";
@@ -20,6 +26,7 @@ import { LoadingOverlay } from "./dashboard/TaskBoard";
 import { NotificationBell } from "./dashboard/NotificationBell";
 import { CreateButton } from "./dashboard/TaskBoard";
 import { TaskBoardModal } from "./dashboard/TaskBoard";
+import { debounce } from "lodash"; // Add this import at the top
 
 const API_URL = "https://9ehr6i4dpi.execute-api.us-east-1.amazonaws.com/dev";
 
@@ -66,6 +73,8 @@ const API_URL = "https://9ehr6i4dpi.execute-api.us-east-1.amazonaws.com/dev";
  * @returns {JSX.Element} Rendered Dashboard component
  */
 const Dashboard = ({ userPool }) => {
+  // Move hooks to the top before any conditional logic
+  const [isSessionValid, setIsSessionValid] = useState(true);
   const [user, setUser] = useState(null);
   const [projects, setProjects] = useState([]);
   const [error, setError] = useState(null);
@@ -119,21 +128,91 @@ const Dashboard = ({ userPool }) => {
     error: null,
   });
 
-  useEffect(() => {
-    const currentUser = userPool.getCurrentUser();
-    if (currentUser) {
-      currentUser.getSession((err, session) => {
-        if (err) {
-          setError(err.message || "Error getting session");
-          return;
-        }
-        setUser(currentUser);
-        const sub = session.getIdToken().payload.sub;
-        setSub(sub);
-      });
-    } else {
-      navigate("/"); // Redirect to home page if no user is logged in
+  // Add these functions before any conditional logic or returns
+  const validateProjectForm = (formData) => {
+    const errors = {};
+    if (!formData.name?.trim()) {
+      errors.name = "Project name is required";
     }
+    if (formData.name?.length > 100) {
+      errors.name = "Project name must be less than 100 characters";
+    }
+    if (formData.description?.length > 500) {
+      errors.description = "Description must be less than 500 characters";
+    }
+    return errors;
+  };
+
+  const debouncedSearch = useCallback(
+    async (query) => {
+      try {
+        const response = await fetch(
+          `${API_URL}/users?query=${query}&userId=${sub}`,
+          {
+            headers: {
+              "Content-Type": "application/json",
+            },
+          }
+        );
+        if (!response.ok) throw new Error("Failed to search users");
+        const data = await response.json();
+        setUserSearchResults(data);
+      } catch (err) {
+        toast.error("Error searching users");
+        console.error(err);
+      }
+    },
+    [sub]
+  );
+
+  const debouncedSearchWithDelay = useMemo(
+    () => debounce(debouncedSearch, 300),
+    [debouncedSearch]
+  );
+
+  // Move useEffect hooks to be with other hooks
+  useEffect(() => {
+    return () => {
+      toast.dismiss();
+    };
+  }, []);
+
+  // Enhanced useEffect for session management
+  useEffect(() => {
+    const checkSession = async () => {
+      const currentUser = userPool.getCurrentUser();
+      if (currentUser) {
+        try {
+          const session = await new Promise((resolve, reject) => {
+            currentUser.getSession((err, session) => {
+              if (err) reject(err);
+              else resolve(session);
+            });
+          });
+
+          if (!session.isValid()) {
+            setIsSessionValid(false);
+            navigate("/");
+            return;
+          }
+
+          setUser(currentUser);
+          setSub(session.getIdToken().payload.sub);
+        } catch (err) {
+          console.error("Session error:", err);
+          setIsSessionValid(false);
+          navigate("/");
+        }
+      } else {
+        setIsSessionValid(false);
+        navigate("/");
+      }
+    };
+
+    checkSession();
+    // Set up session check interval
+    const intervalId = setInterval(checkSession, 5 * 60 * 1000); // Check every 5 minutes
+    return () => clearInterval(intervalId);
   }, [userPool, navigate]);
 
   useEffect(() => {
@@ -159,7 +238,7 @@ const Dashboard = ({ userPool }) => {
           },
         }
       );
-
+      console.log(response);
       if (!response.ok) throw new Error("Failed to fetch tasks");
       const data = await response.json();
 
@@ -171,29 +250,58 @@ const Dashboard = ({ userPool }) => {
     }
   }, [sub]);
 
-  // Update fetchProjects to also fetch all tasks after projects are loaded
-  const fetchProjects = async () => {
-    setIsFetchingProjects(true);
-    try {
-      const response = await fetch(`${API_URL}/projects?userId=${sub}`, {
-        method: "GET",
-        headers: {
-          "Content-Type": "application/json",
-        },
-      });
-      if (!response.ok) throw new Error("Failed to fetch projects");
-      const data = await response.json();
-      // Data now includes members array and role for each project
-      setProjects(data);
-      // Fetch all tasks after projects are loaded
-      await fetchAllTasks();
-    } catch (err) {
-      setError(err.message);
-      toast.error("Failed to fetch projects");
-    } finally {
-      setIsFetchingProjects(false);
-    }
-  };
+  // Enhanced error handling for fetch operations
+  const handleApiError = useCallback(
+    (error, defaultMessage) => {
+      console.error("API Error:", error);
+      if (error.message === "Failed to fetch") {
+        toast.error("Network error. Please check your connection.");
+      } else if (error.status === 401 || error.status === 403) {
+        setIsSessionValid(false);
+        navigate("/");
+      } else {
+        toast.error(error.message || defaultMessage);
+      }
+      setError(error.message || defaultMessage);
+    },
+    [navigate]
+  );
+
+  // Enhanced fetch projects with retry logic
+  const fetchProjects = useCallback(
+    async (retryCount = 3) => {
+      setIsFetchingProjects(true);
+      try {
+        const response = await fetch(`${API_URL}/projects?userId=${sub}`, {
+          method: "GET",
+          headers: { "Content-Type": "application/json" },
+        });
+
+        if (!response.ok) {
+          throw new Error(
+            (await response.text()) || "Failed to fetch projects"
+          );
+        }
+
+        const data = await response.json();
+        setProjects(data);
+        await fetchAllTasks();
+      } catch (err) {
+        if (retryCount > 0 && err.message === "Failed to fetch") {
+          // Retry with exponential backoff
+          setTimeout(
+            () => fetchProjects(retryCount - 1),
+            1000 * (4 - retryCount)
+          );
+        } else {
+          handleApiError(err, "Failed to fetch projects");
+        }
+      } finally {
+        setIsFetchingProjects(false);
+      }
+    },
+    [sub, handleApiError, fetchAllTasks]
+  );
 
   const fetchPendingInvites = async () => {
     try {
@@ -314,6 +422,12 @@ const Dashboard = ({ userPool }) => {
    * @param {boolean} isUpdate - Flag indicating if this is an update operation
    */
   const handleProjectSubmit = async (formData, isUpdate) => {
+    const errors = validateProjectForm(formData);
+    if (Object.keys(errors).length > 0) {
+      Object.values(errors).forEach((error) => toast.error(error));
+      return;
+    }
+
     await withLoading(async () => {
       try {
         let url = `${API_URL}/projects`;
@@ -343,9 +457,10 @@ const Dashboard = ({ userPool }) => {
           `Project ${isUpdate ? "updated" : "created"} successfully`
         );
       } catch (err) {
-        setError(err.message);
-        toast.error(`Failed to ${isUpdate ? "update" : "create"} project`);
-        throw err;
+        handleApiError(
+          err,
+          `Failed to ${isUpdate ? "update" : "create"} project`
+        );
       }
     });
   };
@@ -530,25 +645,6 @@ const Dashboard = ({ userPool }) => {
       }
     } catch (err) {
       toast.error("Error responding to invitation");
-      console.error(err);
-    }
-  };
-
-  const searchUsers = async (query) => {
-    try {
-      const response = await fetch(
-        `${API_URL}/users?query=${query}&userId=${sub}`,
-        {
-          headers: {
-            "Content-Type": "application/json",
-          },
-        }
-      );
-      if (!response.ok) throw new Error("Failed to search users");
-      const data = await response.json();
-      setUserSearchResults(data);
-    } catch (err) {
-      toast.error("Error searching users");
       console.error(err);
     }
   };
@@ -801,7 +897,7 @@ const Dashboard = ({ userPool }) => {
             value={searchQuery}
             onChange={(e) => {
               setSearchQuery(e.target.value);
-              searchUsers(e.target.value);
+              debouncedSearchWithDelay(e.target.value);
             }}
             placeholder="Search users..."
             className="w-full p-2 border rounded-lg"
@@ -839,8 +935,10 @@ const Dashboard = ({ userPool }) => {
   );
 
   const DeleteConfirmationModal = () => {
+    const [confirmText, setConfirmText] = useState("");
     const isProjectDelete = !!selectedIds.projectToDelete;
     const itemType = isProjectDelete ? "project" : "task";
+    const requiredText = isProjectDelete ? "delete" : "confirm";
 
     return (
       <EnhancedModal
@@ -861,6 +959,13 @@ const Dashboard = ({ userPool }) => {
         <div className="space-y-4">
           <p>Are you sure you want to delete this {itemType}?</p>
           <p className="text-sm text-red-500">This action cannot be undone.</p>
+          <input
+            type="text"
+            placeholder={`Type '${requiredText}' to confirm`}
+            value={confirmText}
+            onChange={(e) => setConfirmText(e.target.value)}
+            className="w-full p-2 border rounded"
+          />
           <div className="flex justify-end gap-2">
             <button
               onClick={() => {
@@ -880,7 +985,12 @@ const Dashboard = ({ userPool }) => {
             </button>
             <button
               onClick={isProjectDelete ? handleDeleteProject : handleDeleteTask}
-              className="px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600"
+              disabled={confirmText !== requiredText}
+              className={`px-4 py-2 text-white rounded-lg ${
+                confirmText === requiredText
+                  ? "bg-red-500 hover:bg-red-600"
+                  : "bg-red-300 cursor-not-allowed"
+              }`}
             >
               Delete
             </button>
@@ -889,6 +999,10 @@ const Dashboard = ({ userPool }) => {
       </EnhancedModal>
     );
   };
+
+  if (!isSessionValid) {
+    return null; // Let the navigation handle redirect
+  }
 
   // Update components to use the memoized callbacks
   return (
