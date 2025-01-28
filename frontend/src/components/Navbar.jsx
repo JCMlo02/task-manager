@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import { Link, useNavigate, useLocation } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import tikiLogo from "../assets/nobgLogo.png";
+import { CacheService } from '../services/cacheService';
 
 const Navbar = ({ userPool, isDarkMode, toggleDarkMode, className }) => {
   const navigate = useNavigate();
@@ -22,18 +23,38 @@ const Navbar = ({ userPool, isDarkMode, toggleDarkMode, className }) => {
 
   const signOut = () => {
     if (currentUser) {
-      currentUser.signOut();
-      navigate("/");
-      window.location.reload();
+      // Get user's sub before signing out
+      currentUser.getSession((err, session) => {
+        if (!err && session) {
+          const userId = session.getIdToken().payload.sub;
+          // Clear this user's cache
+          CacheService.clearCache(userId);
+        }
+        currentUser.signOut();
+        navigate("/");
+        window.location.reload();
+      });
     }
   };
 
+  const navLinkClass = isDarkMode
+    ? "text-gray-300 hover:text-white"
+    : "text-gray-600 hover:text-teal-600";
+
+  const buttonClass = isDarkMode
+    ? "bg-teal-600 hover:bg-teal-500 text-white"
+    : "bg-teal-500 hover:bg-teal-400 text-white";
+
+  const mobileMenuClass = isDarkMode
+    ? "bg-gray-900 border-t border-gray-800"
+    : "bg-white border-t border-gray-200";
+
   return (
     <nav
-      className={`${className} transition-colors duration-300 ${
+      className={`${className} fixed w-full top-0 z-50 transition-colors duration-300 ${
         isDarkMode
-          ? "bg-gray-900/95 text-white backdrop-blur-sm"
-          : "bg-teal-600/95 text-white backdrop-blur-sm"
+          ? "bg-gray-900/95 text-white border-b border-gray-800"
+          : "bg-white/95 text-gray-800 border-b border-gray-200"
       }`}
     >
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -57,7 +78,7 @@ const Navbar = ({ userPool, isDarkMode, toggleDarkMode, className }) => {
               >
                 <Link
                   to={item.path}
-                  className={`text-sm font-medium hover:text-teal-200 transition-colors ${
+                  className={`text-sm font-medium ${navLinkClass} transition-colors ${
                     location.pathname === item.path ? "text-teal-200" : ""
                   }`}
                 >
@@ -98,15 +119,15 @@ const Navbar = ({ userPool, isDarkMode, toggleDarkMode, className }) => {
               {currentUser ? (
                 <button
                   onClick={signOut}
-                  className="px-4 py-2 rounded-lg bg-teal-500 hover:bg-teal-400 
-                           text-white font-medium transition-colors duration-300"
+                  className={`px-4 py-2 rounded-lg ${buttonClass} 
+                           font-medium transition-colors duration-300`}
                 >
                   Sign Out
                 </button>
               ) : (
                 <Link to="/login">
-                  <button className="px-4 py-2 rounded-lg bg-teal-500 hover:bg-teal-400 
-                                   text-white font-medium transition-colors duration-300">
+                  <button className={`px-4 py-2 rounded-lg ${buttonClass} 
+                                   font-medium transition-colors duration-300`}>
                     Login Here
                   </button>
                 </Link>
@@ -155,7 +176,7 @@ const Navbar = ({ userPool, isDarkMode, toggleDarkMode, className }) => {
             initial={{ opacity: 0, height: 0 }}
             animate={{ opacity: 1, height: "auto" }}
             exit={{ opacity: 0, height: 0 }}
-            className="md:hidden"
+            className={`md:hidden ${mobileMenuClass}`}
           >
             <div className="px-2 pt-2 pb-3 space-y-1 sm:px-3">
               {navItems.map((item) => (

@@ -28,88 +28,82 @@ export const withLoading = async (operation, setIsLoading, toast) => {
 
 export const taskReducer = (state, action) => {
   switch (action.type) {
-    case "SET_TASKS":
-      const normalizedTasks = Array.isArray(action.tasks)
-        ? action.tasks.map((task) => ({
-            ...task,
-            task_id: String(task.task_id),
-            project_id: String(task.project_id),
-            status: task.status || TASK_STATUSES.BACKLOG,
-          }))
-        : [];
-
-      // Group tasks by project
-      const tasksByProject = normalizedTasks.reduce((acc, task) => {
-        const projectId = String(task.project_id);
-        if (!acc[projectId]) {
-          acc[projectId] = [];
-        }
-        acc[projectId].push(task);
-        return acc;
-      }, {});
-
-      // Sort tasks within each project by status
-      const sortedTasksByProject = Object.keys(tasksByProject).reduce(
-        (acc, projectId) => {
-          acc[projectId] = sortTasks(tasksByProject[projectId]);
-          return acc;
-        },
-        {}
-      );
-
+    case "SET_LOADING":
       return {
         ...state,
-        allTasks: normalizedTasks, // Keep all tasks for analytics
-        tasksByProject: sortedTasksByProject, // Keep project-specific sorted tasks
-        isLoading: false,
-        error: null,
+        isLoading: action.isLoading !== undefined ? action.isLoading : true,
       };
-
-    case "SET_LOADING":
-      return { ...state, isLoading: true };
 
     case "SET_ERROR":
       return {
         ...state,
-        error: action.error,
         isLoading: false,
-        lastError: new Date().toISOString(),
+        error: action.error,
+      };
+
+    case "SET_TASKS":
+      const tasksByProject = {};
+      action.tasks.forEach((task) => {
+        if (!tasksByProject[task.project_id]) {
+          tasksByProject[task.project_id] = {
+            BACKLOG: [],
+            IN_PROGRESS: [],
+            IN_TESTING: [],
+            DONE: [],
+          };
+        }
+        tasksByProject[task.project_id][task.status].push(task);
+      });
+
+      return {
+        ...state,
+        isLoading: false,
+        error: null,
+        allTasks: action.tasks,
+        tasksByProject,
       };
 
     case "UPDATE_TASK_STATUS":
       const updatedTasks = state.allTasks.map((task) =>
-        String(task.task_id) === String(action.taskId)
+        task.task_id === action.taskId
           ? { ...task, status: action.status }
           : task
       );
-
-      // Update both global and project-specific tasks
-      const updatedTasksByProject = updatedTasks.reduce((acc, task) => {
-        const projectId = String(task.project_id);
-        if (!acc[projectId]) {
-          acc[projectId] = [];
-        }
-        acc[projectId].push(task);
-        return acc;
-      }, {});
-
-      const updatedSortedTasksByProject = Object.keys(
-        updatedTasksByProject
-      ).reduce((acc, projectId) => {
-        acc[projectId] = sortTasks(updatedTasksByProject[projectId]);
-        return acc;
-      }, {});
-
       return {
         ...state,
         allTasks: updatedTasks,
-        tasksByProject: updatedSortedTasksByProject,
+        tasksByProject: buildTasksByProject(updatedTasks),
+      };
+
+    case "DELETE_TASK":
+      const remainingTasks = state.allTasks.filter(
+        (task) => task.task_id !== action.taskId
+      );
+      return {
+        ...state,
+        allTasks: remainingTasks,
+        tasksByProject: buildTasksByProject(remainingTasks),
       };
 
     default:
-      console.warn(`Unknown action type: ${action.type}`);
       return state;
   }
+};
+
+const buildTasksByProject = (tasks) => {
+  const tasksByProject = {};
+  tasks.forEach((task) => {
+    if (!tasksByProject[task.project_id]) {
+      tasksByProject[task.project_id] = {
+        BACKLOG: [],
+        IN_PROGRESS: [],
+        IN_TESTING: [],
+        DONE: [],
+      };
+    }
+    tasksByProject[task.project_id][task.status].push(task);
+  });
+  return tasksByProject;
 };
 
 export const sortTasks = (tasks) => {
