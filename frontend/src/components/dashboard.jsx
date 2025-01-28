@@ -177,7 +177,6 @@ const Dashboard = ({ userPool }) => {
     },
   });
 
-  // Update fetchAllTasks with request deduplication
   const fetchAllTasks = useCallback(
     async (force = false) => {
       const requestKey = "tasks";
@@ -233,7 +232,6 @@ const Dashboard = ({ userPool }) => {
     [sub, taskState.allTasks, handleLoading]
   );
 
-  // Update fetchProjects with request deduplication
   const fetchProjects = useCallback(
     async (force = false) => {
       const requestKey = "projects";
@@ -288,7 +286,6 @@ const Dashboard = ({ userPool }) => {
     [sub, handleApiError, projects]
   );
 
-  // Update fetchPendingInvites with request deduplication
   const fetchPendingInvites = useCallback(
     async (force = false) => {
       const requestKey = "invites";
@@ -439,7 +436,6 @@ const Dashboard = ({ userPool }) => {
     return () => clearInterval(intervalId);
   }, [userPool, navigate]);
 
-  // Update handleLoading to clean up timeout on unmount
   useEffect(() => {
     return () => {
       if (loadingTimeout.current) {
@@ -496,7 +492,6 @@ const Dashboard = ({ userPool }) => {
     });
   };
 
-  // Update the deleteTask function
   const deleteTask = async (taskId, projectId) => {
     try {
       const response = await fetch(
@@ -514,10 +509,8 @@ const Dashboard = ({ userPool }) => {
         throw new Error(errorData || "Failed to delete task");
       }
 
-      // Update both cache and state
       CacheService.deleteTask(taskId, sub);
 
-      // Update global state
       dispatchTasks({
         type: "SET_TASKS",
         tasks: taskState.allTasks.filter((task) => task.task_id !== taskId),
@@ -533,7 +526,6 @@ const Dashboard = ({ userPool }) => {
     }
   };
 
-  // Update handleDeleteTask to be simpler
   const handleDeleteTask = async () => {
     if (!selectedIds.taskToDelete || !selectedIds.selectedProjectId) return;
 
@@ -612,7 +604,6 @@ const Dashboard = ({ userPool }) => {
     });
   };
 
-  // Update handleTaskSubmit to properly handle task data
   const handleTaskSubmit = async (e, formData, isUpdate = false) => {
     e.preventDefault(); // Ensure preventDefault is called on the event object
     await withLoading(async () => {
@@ -933,7 +924,6 @@ const Dashboard = ({ userPool }) => {
     [taskState.allTasks, sub]
   );
 
-  // Update renderTaskBoard to use project-specific tasks
   const renderTaskBoard = useCallback(() => {
     if (taskState.isLoading) return <LoadingSpinner />;
 
@@ -941,7 +931,6 @@ const Dashboard = ({ userPool }) => {
       (p) => String(p.project_id) === String(selectedIds.selectedProjectId)
     );
 
-    // Get tasks for current project from tasksByProject
     const projectTasks = taskState.tasksByProject[
       selectedIds.selectedProjectId
     ] || {
@@ -1046,12 +1035,10 @@ const Dashboard = ({ userPool }) => {
     return <div className="text-red-500 p-4">Error: {error}</div>;
   }
 
-  // Add user check
   if (!user) {
     return <LoadingSpinner />;
   }
 
-  // Update InviteUserModal to handle its own search state
   const InviteUserModal = React.memo(() => {
     const [localSearchQuery, setLocalSearchQuery] = useState("");
     const [localSearchResults, setLocalSearchResults] = useState([]);
@@ -1209,7 +1196,6 @@ const Dashboard = ({ userPool }) => {
     return null; // Let the navigation handle redirect
   }
 
-  // Update components to use the memoized callbacks
   return (
     <div
       className={`min-h-screen ${darkModeClasses} transition-all duration-300`}
@@ -1217,7 +1203,6 @@ const Dashboard = ({ userPool }) => {
       {/* Only show loading overlay when showLoading is true */}
       {showLoading && <LoadingOverlay isDarkMode={isDarkMode} />}
 
-      {/* Update Navbar className to match home.jsx */}
       <Navbar
         userPool={userPool}
         isDarkMode={isDarkMode}
