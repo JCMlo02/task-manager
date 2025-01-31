@@ -4,7 +4,7 @@ import { motion } from "framer-motion";
 import { Toaster, toast } from "react-hot-toast";
 import { CognitoUser, AuthenticationDetails } from "amazon-cognito-identity-js";
 import Logo from "../assets/nobgLogo.png";
-import Navbar from "./navbar";
+import Navbar from "./Navbar";
 import { FaEnvelope, FaLock, FaRegEye, FaRegEyeSlash } from "react-icons/fa";
 import { useAppState } from "../states/stateManagement"; // Fix import path
 
@@ -77,7 +77,7 @@ const Login = ({ userPool }) => {
               localStorage.setItem("userSub", userData.sub);
               localStorage.setItem("userData", JSON.stringify(userData));
               localStorage.setItem("lastLoginCheck", Date.now().toString());
-              localStorage.setItem("isAuthenticated", "true"); 
+              localStorage.setItem("isAuthenticated", "true");
 
               // Update auth state
               setSub(userData.sub);

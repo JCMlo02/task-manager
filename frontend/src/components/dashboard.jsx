@@ -1,9 +1,9 @@
 import React, { useEffect, useCallback, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import Navbar from "./navbar";
+import Navbar from "./Navbar";
 import { motion, AnimatePresence } from "framer-motion";
 import { Toaster, toast } from "react-hot-toast";
-import { FaPlusCircle, FaChartLine, FaClock, FaUsers } from "react-icons/fa"; 
+import { FaPlusCircle, FaChartLine, FaClock, FaUsers } from "react-icons/fa";
 import { DragDropContext, Droppable } from "react-beautiful-dnd";
 import "@szhsin/react-menu/dist/index.css";
 import "@szhsin/react-menu/dist/transitions/slide.css";
@@ -12,8 +12,8 @@ import AnalyticsDashboard from "./dashboard/DashboardFeatures/AnalyticsDashboard
 import InvitationsModal from "./dashboard/Invites/InvitationsModal";
 import ProjectForm from "./dashboard/Projects/ProjectForm";
 import TaskForm from "./dashboard/Tasks/TaskForm";
-import { TASK_STATUSES } from "../constants"; 
-import { ProjectCard } from "./dashboard/Projects/ProjectCard"; 
+import { TASK_STATUSES } from "../constants";
+import { ProjectCard } from "./dashboard/Projects/ProjectCard";
 import {
   LoadingOverlay,
   TaskColumn,
@@ -117,7 +117,7 @@ const Dashboard = ({ userPool }) => {
   const { showLoading, handleLoading } = useLoadingState();
   const { projects, setProjects, isFetchingProjects, fetchProjects } =
     useProjects(sub);
-  const { taskState, setTaskState, fetchAllTasks } = useTasks(sub); 
+  const { taskState, setTaskState, fetchAllTasks } = useTasks(sub);
   const {
     pendingInvites,
     showInviteModal,
@@ -127,7 +127,7 @@ const Dashboard = ({ userPool }) => {
     handleInviteUser,
     handleInviteResponse,
     fetchPendingInvites,
-  } = useInvites(sub, fetchProjects); 
+  } = useInvites(sub, fetchProjects);
 
   const { fetchWithTracking } = useDataFetching(
     API_URL,
@@ -374,8 +374,8 @@ const Dashboard = ({ userPool }) => {
         newTaskName: task.name,
         newTaskDescription: task.description,
         assignedTo: task.assigned_to,
-        priority: task.priority, 
-        creator_username: task.creator_username, 
+        priority: task.priority,
+        creator_username: task.creator_username,
         assignee_username: task.assignee_username,
       }));
       setModalState((prev) => ({
@@ -870,7 +870,7 @@ const Dashboard = ({ userPool }) => {
     isAuthChecked,
     sub,
     isSessionValid,
-    initialDataFetched, 
+    initialDataFetched,
     fetchWithTracking,
     fetchProjects,
     fetchAllTasks,
@@ -1128,7 +1128,7 @@ const Dashboard = ({ userPool }) => {
                   ${
                     isDarkMode
                       ? "scrollbar-thumb-slate-600"
-                      : "scrollbar-thumb-slate-500" 
+                      : "scrollbar-thumb-slate-500"
                   }
                   scrollbar-track-transparent
                   relative
