@@ -8,7 +8,7 @@ import {
   FaBell,
   FaGripVertical,
 } from "react-icons/fa";
-import Navbar from "./navbar";
+import Navbar from "./Navbar";
 
 const THEME = {
   light: {

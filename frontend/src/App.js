@@ -1,12 +1,12 @@
 // src/App.jsx
 import React from "react";
 import { BrowserRouter as Router, Route, Routes } from "react-router-dom";
-import Login from "./components/login";
-import Register from "./components/register";
-import Dashboard from "./components/dashboard";
-import HomePage from "./components/home";
-import About from "./components/about";
-import Features from "./components/features";
+import Login from "./components/Login";
+import Register from "./components/Register";
+import Dashboard from "./components/Dashboard";
+import HomePage from "./components/Home";
+import About from "./components/About";
+import Features from "./components/Features";
 const App = ({ userPool }) => {
   return (
     <Router>

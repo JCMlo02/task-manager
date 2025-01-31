@@ -3,7 +3,7 @@ import { Link, useNavigate } from "react-router-dom";
 import { motion, useScroll, useTransform } from "framer-motion";
 import Countdown from "react-countdown";
 import { testimonials } from "../assets/testimonials";
-import Navbar from "./navbar";
+import Navbar from "./Navbar";
 import tikiLogo from "../assets/nobgLogo.png";
 import Analytics from "../assets/AnalyticsDash.png";
 import Projects from "../assets/ProjectBoard.png";
@@ -66,7 +66,7 @@ const useInView = (options = {}) => {
         observer.unobserve(currentRef);
       }
     };
-  }, [options]); 
+  }, [options]);
 
   return [elementRef, isInView];
 };

@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Toaster, toast } from "react-hot-toast";
-import Navbar from "./navbar"; // Import the Navbar component
+import Navbar from "./Navbar"; // Import the Navbar component
 import Logo from "../assets/nobgLogo.png";
 import {
   FaUser,
