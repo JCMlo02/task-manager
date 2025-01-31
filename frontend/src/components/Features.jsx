@@ -8,7 +8,7 @@ import {
   FaBell,
   FaGripVertical,
 } from "react-icons/fa";
-import Navbar from "./Navbar";
+import Navbar from "./navbar";
 
 const THEME = {
   light: {
@@ -62,7 +62,6 @@ const Features = ({ userPool }) => {
   const navigate = useNavigate();
   const isDarkMode = localStorage.getItem("isDarkMode") === "true";
 
-  // Add this useEffect for redirect
   useEffect(() => {
     const currentUser = userPool?.getCurrentUser();
     if (currentUser) {
@@ -111,11 +110,7 @@ const Features = ({ userPool }) => {
 
   return (
     <div
-      className={`min-h-screen ${
-        isDarkMode
-          ? THEME.dark.bg
-          : "bg-gradient-to-br from-teal-600 to-indigo-600"
-      }`}
+      className={`min-h-screen ${isDarkMode ? THEME.dark.bg : THEME.light.bg}`}
     >
       <Navbar
         userPool={userPool}

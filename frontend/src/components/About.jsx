@@ -1,7 +1,7 @@
 import React, { useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
-import Navbar from "./Navbar";
+import Navbar from "./navbar";
 
 const THEME = {
   light: {
@@ -23,7 +23,7 @@ const THEME = {
 const About = ({ userPool }) => {
   const navigate = useNavigate();
   const isDarkMode = localStorage.getItem("isDarkMode") === "true";
-  
+
   useEffect(() => {
     const currentUser = userPool?.getCurrentUser();
     if (currentUser) {
