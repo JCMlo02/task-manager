@@ -1,6 +1,6 @@
 import React from "react";
 import { motion } from "framer-motion";
-import { useMediaQuery, BREAKPOINTS, mobileStyles } from '../../../styles/responsive';
+import { useMediaQuery, BREAKPOINTS } from "../../../styles/responsive";
 
 const ProjectModal = ({ children, title, onClose, isDarkMode }) => {
   const isMobile = useMediaQuery(`(max-width: ${BREAKPOINTS.md})`);
@@ -8,8 +8,10 @@ const ProjectModal = ({ children, title, onClose, isDarkMode }) => {
   return (
     <div className="fixed inset-0 z-50 overflow-y-auto">
       {/* Overlay */}
-      <div 
-        className={`fixed inset-0 ${isDarkMode ? 'bg-black/70' : 'bg-black/50'} backdrop-blur-sm`}
+      <div
+        className={`fixed inset-0 ${
+          isDarkMode ? "bg-black/70" : "bg-black/50"
+        } backdrop-blur-sm`}
         onClick={onClose}
       />
 
@@ -28,11 +30,17 @@ const ProjectModal = ({ children, title, onClose, isDarkMode }) => {
           `}
         >
           {/* Header */}
-          <div className={`
+          <div
+            className={`
             px-6 py-4 border-b
             ${isDarkMode ? "border-gray-700" : "border-orange-200"}
-          `}>
-            <h3 className={`text-xl font-bold ${isDarkMode ? "text-white" : "text-orange-900"}`}>
+          `}
+          >
+            <h3
+              className={`text-xl font-bold ${
+                isDarkMode ? "text-white" : "text-orange-900"
+              }`}
+            >
               {title}
             </h3>
           </div>
