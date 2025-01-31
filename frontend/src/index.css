@@ -48,3 +48,96 @@
 .carousel-item:nth-child(even) {
   background-color: #f3f3f3;
 }
+
+/* Modal Scrollbar Styling */
+.modal-scroll {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(155, 155, 155, 0.5) transparent;
+}
+
+.modal-scroll::-webkit-scrollbar {
+  width: 8px;
+}
+
+.modal-scroll::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.modal-scroll::-webkit-scrollbar-thumb {
+  background-color: rgba(155, 155, 155, 0.5);
+  border-radius: 20px;
+  border: transparent;
+}
+
+/* Prevent background scroll when modal is open */
+body.modal-open {
+  overflow: hidden;
+}
+
+/* Analytics Dashboard Scrollbar Styles */
+.analytics-scrollbar {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(155, 155, 155, 0.5) transparent;
+}
+
+.analytics-scrollbar::-webkit-scrollbar {
+  width: 6px;
+}
+
+.analytics-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.analytics-scrollbar::-webkit-scrollbar-thumb {
+  background-color: rgba(155, 155, 155, 0.5);
+  border-radius: 20px;
+}
+
+/* Prevent background scroll when modal is open */
+.modal-open {
+  overflow: hidden;
+}
+
+/* Chart container styles */
+.chart-container {
+  position: relative;
+  width: 100%;
+  height: 100%;
+}
+
+/* Add custom scrollbar styles */
+.scrollbar-dark {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(148, 163, 184, 0.2) transparent;
+}
+
+.scrollbar-dark::-webkit-scrollbar {
+  width: 6px;
+}
+
+.scrollbar-dark::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.scrollbar-dark::-webkit-scrollbar-thumb {
+  background-color: rgba(148, 163, 184, 0.2);
+  border-radius: 3px;
+}
+
+.scrollbar-light {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(148, 163, 184, 0.3) transparent;
+}
+
+.scrollbar-light::-webkit-scrollbar {
+  width: 6px;
+}
+
+.scrollbar-light::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.scrollbar-light::-webkit-scrollbar-thumb {
+  background-color: rgba(148, 163, 184, 0.3);
+  border-radius: 3px;
+}

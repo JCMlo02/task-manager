@@ -1,14 +1,15 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useMemo } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { motion, useScroll, useTransform } from "framer-motion";
 import Countdown from "react-countdown";
 import { testimonials } from "../assets/testimonials";
-import Navbar from "./Navbar";
+import Navbar from "./navbar";
 import tikiLogo from "../assets/nobgLogo.png";
-import Analytics from "../assets/Analytics.png";
-import Projects from "../assets/Projects.png";
-import TaskBoard from "../assets/TaskBoard.png";
+import Analytics from "../assets/AnalyticsDash.png";
+import Projects from "../assets/ProjectBoard.png";
+import TaskBoard from "../assets/TasksBoard.png";
 import { FaArrowDown, FaMouse } from "react-icons/fa";
+import { useMediaQuery, BREAKPOINTS } from "../styles/responsive";
 
 const THEME = {
   light: {
@@ -65,13 +66,13 @@ const useInView = (options = {}) => {
         observer.unobserve(currentRef);
       }
     };
-  }, [options]); // Add options to dependencies
+  }, [options]); 
 
   return [elementRef, isInView];
 };
 
 const getIconForTitle = (title) => {
-  const iconStyle = "text-2xl text-teal-500"; // Consistent color instead of gradient
+  const iconStyle = "text-2xl text-teal-500";
 
   switch (title) {
     case "Task Board View":
@@ -229,23 +230,28 @@ const HomePage = ({ userPool }) => {
 
 const HeroSection = ({ isDarkMode, scale, variants }) => {
   const [scrollRef, isScrollVisible] = useInView({ threshold: 0.1 });
+  const isMobile = useMediaQuery(`(max-width: ${BREAKPOINTS.md})`);
 
   return (
     <motion.section
       style={{ scale }}
-      className="relative min-h-screen flex items-center justify-center overflow-hidden"
+      className="relative min-h-screen flex flex-col items-center justify-center overflow-hidden px-4 py-20"
       initial="hidden"
       animate="visible"
       variants={variants.hero}
     >
+      {/* Background */}
       <div className="absolute inset-0 bg-gradient-radial from-teal-500/20 to-transparent dark:from-teal-900/20" />
 
-      <motion.div
-        className="relative z-10 max-w-4xl mx-auto px-4 text-center"
-        variants={variants.stagger}
-      >
+      {/* Main Content Container - Added position relative and pb-16 for scroll indicator space */}
+      <div className="relative z-10 w-full max-w-4xl mx-auto px-4 text-center pb-16">
         <motion.div variants={variants.item}>
-          <h1 className="text-6xl md:text-7xl font-extrabold mb-6 bg-gradient-to-r from-teal-600 to-indigo-600 bg-clip-text text-transparent">
+          <h1
+            className={`
+            font-extrabold mb-6 bg-gradient-to-r from-teal-600 to-indigo-600 bg-clip-text text-transparent
+            ${isMobile ? "text-4xl sm:text-5xl" : "text-6xl md:text-7xl"}
+          `}
+          >
             Welcome to
           </h1>
         </motion.div>
@@ -254,30 +260,47 @@ const HeroSection = ({ isDarkMode, scale, variants }) => {
           <img
             src={tikiLogo}
             alt="TikiTask Logo"
-            className="w-auto h-32 mx-auto drop-shadow-2xl"
+            className={`
+              mx-auto drop-shadow-2xl object-contain
+              ${isMobile ? "h-20 sm:h-24" : "h-32"}
+            `}
+            style={{
+              maxWidth: "100%",
+              width: "auto",
+            }}
           />
         </motion.div>
 
         <motion.p
           variants={variants.item}
-          className="text-xl md:text-2xl mb-8 text-slate-600 dark:text-slate-300"
+          className={`
+            mb-8 text-slate-600 dark:text-slate-300 max-w-2xl mx-auto
+            ${isMobile ? "text-lg sm:text-xl" : "text-xl md:text-2xl"}
+          `}
         >
           Transform your productivity journey with our intelligent task
           management solution
         </motion.p>
 
-        <motion.div variants={variants.item} className="space-x-4">
+        <motion.div variants={variants.item} className="space-x-4 mb-20">
           <Link to="/register">
             <motion.button
               whileHover={{ scale: 1.05 }}
               whileTap={{ scale: 0.95 }}
-              className="px-8 py-4 bg-gradient-to-r from-teal-500 to-indigo-500 text-white rounded-xl font-semibold text-lg shadow-lg hover:shadow-xl transition-all"
+              className={`
+                bg-gradient-to-r from-teal-500 to-indigo-500 text-white rounded-xl 
+                font-semibold shadow-lg hover:shadow-xl transition-all
+                ${isMobile ? "px-6 py-3 text-base" : "px-8 py-4 text-lg"}
+              `}
             >
               Start Your Journey
             </motion.button>
           </Link>
         </motion.div>
+      </div>
 
+      {/* Scroll Indicator - Updated positioning */}
+      <div className="absolute bottom-0 left-0 right-0 flex justify-center pb-8">
         <motion.div
           ref={scrollRef}
           animate={{
@@ -288,161 +311,190 @@ const HeroSection = ({ isDarkMode, scale, variants }) => {
             y: { repeat: Infinity, duration: 2 },
             opacity: { duration: 0.5 },
           }}
-          className="absolute bottom-10 left-1/2 transform -translate-x-1/2"
+          className={`
+            text-center
+            ${isMobile ? "hidden" : "block"}
+          `}
         >
-          <FaArrowDown
-            className={`text-2xl ${
-              isDarkMode ? "text-white" : "text-slate-800"
-            }`}
-          />
+          <div className="flex flex-col items-center space-y-2">
+            <span
+              className={`
+                text-sm font-medium
+                ${isDarkMode ? "text-slate-400" : "text-slate-600"}
+              `}
+            >
+              Scroll to explore
+            </span>
+            <FaArrowDown
+              className={`
+                text-2xl
+                ${isDarkMode ? "text-slate-400" : "text-slate-600"}
+                animate-bounce
+              `}
+            />
+          </div>
         </motion.div>
-      </motion.div>
+      </div>
 
-      <FloatingElements isDarkMode={isDarkMode} />
+      {/* Floating Elements */}
+      <FloatingElements isDarkMode={isDarkMode} isMobile={isMobile} />
     </motion.section>
   );
 };
 
-const ShowcaseSection = ({ isDarkMode }) => (
-  <motion.section
-    initial={{ opacity: 0 }}
-    whileInView={{ opacity: 1 }}
-    viewport={{ once: true }}
-    className={`py-24 px-4 ${isDarkMode ? "bg-slate-800" : "bg-white"}`}
-  >
-    <div className="max-w-7xl mx-auto">
-      <SectionHeader
-        title="In Action"
-        subtitle="Discover how our platform can transform your workflow"
-        isDarkMode={isDarkMode}
-      />
+const ShowcaseSection = ({ isDarkMode }) => {
+  const isMobile = useMediaQuery(`(max-width: ${BREAKPOINTS.md})`);
 
-      <div className="mt-16 space-y-32">
-        {" "}
-        {/* Increased spacing */}
-        {screenshots.map((item, index) => (
-          <motion.div
-            key={index}
-            initial={{ opacity: 0, y: 50 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true, margin: "-100px" }}
-            transition={{ duration: 0.8, delay: index * 0.2 }}
-            className={`
-              relative flex flex-col lg:flex-row items-center gap-8 
-              ${index % 2 === 1 ? "lg:flex-row-reverse" : "lg:flex-row"}
-              max-w-6xl mx-auto
-            `}
-          >
-            {/* Image Container with hover effect */}
-            <div className="w-full lg:w-2/3 relative group">
-              <motion.div
-                whileHover={{ scale: 1.02 }}
-                className={`
-                  rounded-2xl overflow-hidden shadow-xl
-                  ${isDarkMode ? "bg-slate-700" : "bg-white"}
-                  transform transition-all duration-300
-                  group-hover:shadow-2xl
-                `}
-              >
-                <div className="relative p-4">
-                  {/* Replace gradient bar with subtle border */}
-                  <div
-                    className={`
-                    absolute top-0 left-0 right-0 h-px
-                    ${isDarkMode ? "bg-slate-600" : "bg-slate-200"}
-                  `}
-                  />
-                  <div
-                    className={`
-                    rounded-lg overflow-hidden
-                    ${isDarkMode ? "bg-slate-800" : "bg-gray-50"}
-                    p-2
-                  `}
-                  >
-                    <img
-                      src={item.image}
-                      alt={item.title}
-                      className="w-full h-auto object-contain rounded-md"
-                      style={{ maxHeight: "400px" }}
+  return (
+    <motion.section
+      initial={{ opacity: 0 }}
+      whileInView={{ opacity: 1 }}
+      viewport={{ once: true }}
+      className={`py-12 md:py-24 px-4 ${
+        isDarkMode ? "bg-slate-800" : "bg-white"
+      }`}
+    >
+      <div className="max-w-7xl mx-auto">
+        <SectionHeader
+          title="In Action"
+          subtitle="Discover how our platform can transform your workflow"
+          isDarkMode={isDarkMode}
+        />
+
+        <div className="mt-8 md:mt-16 space-y-16 md:space-y-32">
+          {screenshots.map((item, index) => (
+            <motion.div
+              key={index}
+              initial={{ opacity: 0, y: 50 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true, margin: "-50px" }}
+              transition={{ duration: 0.8, delay: index * 0.2 }}
+              className={`
+                relative flex flex-col items-center gap-6 md:gap-8
+                ${
+                  !isMobile && index % 2 === 1
+                    ? "md:flex-row-reverse"
+                    : "md:flex-row"
+                }
+                max-w-6xl mx-auto
+              `}
+            >
+              {/* Mobile-optimized image container */}
+              <div className="w-full md:w-2/3 relative group">
+                <motion.div
+                  whileHover={!isMobile ? { scale: 1.02 } : {}}
+                  className="rounded-xl md:rounded-2xl overflow-hidden shadow-lg md:shadow-xl"
+                >
+                  <div className="relative p-4">
+                    <div
+                      className={`
+                      absolute top-0 left-0 right-0 h-px
+                      ${isDarkMode ? "bg-slate-600" : "bg-slate-200"}
+                    `}
                     />
-
-                    {/* Interactive overlay */}
-                    <motion.div
-                      className="absolute inset-0 bg-black/30 opacity-0 group-hover:opacity-100 transition-opacity"
-                      initial={false}
+                    <div
+                      className={`
+                      rounded-lg overflow-hidden
+                      ${isDarkMode ? "bg-slate-800" : "bg-gray-50"}
+                      p-2
+                    `}
                     >
-                      <div className="absolute bottom-4 left-4 flex items-center text-white">
-                        <FaMouse className="mr-2" />
-                        <span className="text-sm font-medium">
-                          Hover to explore
-                        </span>
-                      </div>
-                    </motion.div>
+                      <img
+                        src={item.image}
+                        alt={item.title}
+                        className="w-full h-auto object-contain rounded-md"
+                        style={{ maxHeight: "400px" }}
+                      />
+
+                      <motion.div
+                        className="absolute inset-0 bg-black/30 opacity-0 group-hover:opacity-100 transition-opacity"
+                        initial={false}
+                      >
+                        <div className="absolute bottom-4 left-4 flex items-center text-white">
+                          <FaMouse className="mr-2" />
+                          <span className="text-sm font-medium">
+                            Hover to explore
+                          </span>
+                        </div>
+                      </motion.div>
+                    </div>
                   </div>
-                </div>
-              </motion.div>
-            </div>
+                </motion.div>
+              </div>
 
-            {/* Text Content with animated line */}
-            <div className="w-full lg:w-1/3 space-y-6">
-              {/* Replace gradient line with subtle separator */}
-              <div
-                className={`h-px w-16 ${
-                  isDarkMode ? "bg-teal-500/30" : "bg-teal-500/20"
-                }`}
-              />
-              <h3
-                className={`
-                text-3xl font-bold
-                ${isDarkMode ? "text-white" : "text-slate-800"}
-                flex items-center gap-3
-              `}
-              >
-                {getIconForTitle(item.title)}
-                {item.title}
-              </h3>
-              <p
-                className={`
-                text-xl leading-relaxed
-                ${isDarkMode ? "text-slate-300" : "text-slate-600"}
-              `}
-              >
-                {item.description}
-              </p>
-            </div>
-          </motion.div>
-        ))}
+              {/* Mobile-optimized text content */}
+              <div className="w-full md:w-1/3 space-y-4 md:space-y-6 px-4 md:px-0">
+                <div
+                  className={`h-px w-16 ${
+                    isDarkMode ? "bg-teal-500/30" : "bg-teal-500/20"
+                  }`}
+                />
+                <h3
+                  className={`
+                  text-3xl font-bold
+                  ${isDarkMode ? "text-white" : "text-slate-800"}
+                  flex items-center gap-3
+                `}
+                >
+                  {getIconForTitle(item.title)}
+                  {item.title}
+                </h3>
+                <p
+                  className={`
+                  text-xl leading-relaxed
+                  ${isDarkMode ? "text-slate-300" : "text-slate-600"}
+                `}
+                >
+                  {item.description}
+                </p>
+              </div>
+            </motion.div>
+          ))}
+        </div>
       </div>
-    </div>
-  </motion.section>
-);
+    </motion.section>
+  );
+};
 
-const FloatingElements = ({ isDarkMode }) => (
-  <div className="absolute inset-0 overflow-hidden pointer-events-none">
-    {[...Array(6)].map((_, i) => (
-      <motion.div
-        key={i}
-        className={`absolute w-64 h-64 rounded-full ${
-          isDarkMode ? "bg-teal-900/10" : "bg-teal-500/10"
-        }`}
-        animate={{
-          x: [0, 100, 0],
-          y: [0, -100, 0],
-          scale: [1, 1.2, 1],
-        }}
-        transition={{
-          duration: 20,
-          repeat: Infinity,
-          delay: i * 2,
-        }}
-        style={{
-          left: `${Math.random() * 100}%`,
-          top: `${Math.random() * 100}%`,
-        }}
-      />
-    ))}
-  </div>
-);
+const FloatingElements = ({ isDarkMode, isMobile }) => {
+  const elements = useMemo(() => {
+    return [...Array(isMobile ? 3 : 6)].map((_, i) => ({
+      id: i,
+      left: `${Math.random() * 100}%`,
+      top: `${Math.random() * 100}%`,
+      delay: i * 2,
+    }));
+  }, [isMobile]);
+
+  return (
+    <div className="absolute inset-0 overflow-hidden pointer-events-none">
+      {elements.map((element) => (
+        <motion.div
+          key={element.id}
+          className={`
+            absolute rounded-full
+            ${isDarkMode ? "bg-teal-900/10" : "bg-teal-500/10"}
+            ${isMobile ? "w-32 h-32" : "w-64 h-64"}
+          `}
+          animate={{
+            x: [0, 50, 0],
+            y: [0, -50, 0],
+            scale: [1, 1.1, 1],
+          }}
+          transition={{
+            duration: 20,
+            repeat: Infinity,
+            delay: element.delay,
+          }}
+          style={{
+            left: element.left,
+            top: element.top,
+          }}
+        />
+      ))}
+    </div>
+  );
+};
 
 const SectionHeader = ({ title, subtitle, isDarkMode }) => (
   <div className="text-center max-w-3xl mx-auto">

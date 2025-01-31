@@ -5,9 +5,8 @@ import Login from "./components/login";
 import Register from "./components/register";
 import Dashboard from "./components/dashboard";
 import HomePage from "./components/home";
-import About from "./components/About";
-import Features from "./components/Features";
-
+import About from "./components/about";
+import Features from "./components/features";
 const App = ({ userPool }) => {
   return (
     <Router>

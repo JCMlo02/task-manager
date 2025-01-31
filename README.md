@@ -1,46 +1,82 @@
 # TikiTask
 
-## Overview
-
-This project is a full-stack web application designed for project and task management with real-time collaboration features. It provides a Kanban-style interface for managing tasks, analytics dashboards for tracking progress, and role-based access to manage teams effectively. The app is built with modern web technologies, leveraging AWS services for a serverless backend.
+TikiTask is a modern, full-stack task management application built with React and AWS serverless architecture. It provides a Kanban-style interface for managing tasks, real-time collaboration features, and comprehensive analytics dashboards.
 
 ## Features
 
-- **Authentication**: Secure user registration, login, and session management via AWS Cognito.
-- **Project Management**: Create, edit, and delete projects; invite team members; access control through membership of project
-- **Task Management**: Drag-and-drop Kanban board, task assignment, filtering, and status updates.
-- **Analytics**: Visualize project progress, task distribution, and activity trends with Chart.js.
-- **Collaboration**: Invite team members, share projects, and assign tasks.
+### Core Features
 
-## Stack
+- **Task Management**
+  - Drag-and-drop Kanban board
+  - Task assignments and status updates
+  - Priority levels and filtering
+  - Task templates for common workflows
+  - Comments and collaboration
 
-### Frontend (located in `frontend/` folder)
+### User Experience
 
-- **React 19**: For building the user interface.
-- **TailwindCSS**: For responsive, utility-first styling.
-- **Framer Motion**: For animations.
-- **AWS Cognito**: For user authentication.
-- **React Router**: For navigation and routing.
-- **Chart.js**: For data visualization.
-- **React Beautiful DnD**: For drag-and-drop functionality.
+- **Responsive Design**
+  - Mobile-optimized interface
+  - Dark/Light mode support
+  - Smooth animations with Framer Motion
+  - Real-time updates
 
-### Backend (located in `backend/` folder)
+### Project Management
 
-- **Python**: For building the API endpoints.
-- **AWS Lambda**: For serverless functions.
-- **DynamoDB**: For data storage.
-- **API Gateway**: For providing a REST API.
-- **Cognito**: For user authentication.
-- **Terraform**: For managing infrastructure as code.
+- **Team Collaboration**
+  - Project creation and management
+  - Team member invitations
+  - Role-based access control
+  - Activity tracking
 
-## Folder Structure
+### Analytics
 
-- `frontend/`: Contains all the code for the React frontend.
-- `backend/`: Contains the FastAPI backend and serverless functions.
+- **Project Insights**
+  - Task distribution visualization
+  - Progress tracking
+  - Team performance metrics
+  - Activity trends with Chart.js
 
-## Deployment
+## Technical Stack
 
-- **Frontend**: Deployed to AWS S3 with CloudFront for CDN.
-- **Backend**: Deployed as AWS Lambda functions with API Gateway for API access.
-- **Infrastructure**: Managed with Terraform.
-- **CI/CD**: GitHub Actions for continuous integration and deployment.
+### Frontend
+
+- **Core**
+
+  - React 19.0.0
+
+- **UI Components**
+
+  - Framer Motion 12.0.3
+  - TailwindCSS 3.4.17
+  - React Beautiful DnD 13.1.1
+  - React Icons 5.4.0
+  - React Hot Toast 2.5.1
+
+- **State Management**
+  - React Hooks
+  - Local Storage for caching
+
+### Backend
+
+- **AWS Services**
+  - Lambda (Python 3.9)
+  - API Gateway
+  - DynamoDB
+  - Cognito Authentication
+  - ECR for container registry
+
+### DevOps
+
+- **Infrastructure as Code**
+  - Terraform
+  - GitHub Actions for CI/CD
+
+## Development Setup
+
+1. Install dependencies:
+
+```bash
+cd frontend
+npm install --legacy-peer-deps
+```

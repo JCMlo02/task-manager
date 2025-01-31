@@ -1,23 +1,27 @@
 import React, { useState } from "react";
 import { Link, useNavigate, useLocation } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
+import { FaMoon, FaSun } from "react-icons/fa"; // Add this import
 import tikiLogo from "../assets/nobgLogo.png";
-import { CacheService } from '../services/cacheService';
+import { CacheService } from "../services/cacheService";
+import { useMediaQuery, BREAKPOINTS } from "../styles/responsive";
 
 const Navbar = ({ userPool, isDarkMode, toggleDarkMode, className }) => {
   const navigate = useNavigate();
   const location = useLocation();
   const currentUser = userPool.getCurrentUser();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const isMobile = useMediaQuery(`(max-width: ${BREAKPOINTS.md})`);
 
   // Only show these nav items when not on dashboard
-  const shouldShowNavItems = !currentUser || location.pathname !== '/dashboard';
+  const shouldShowNavItems = !currentUser || location.pathname !== "/dashboard";
 
-  const navItems = shouldShowNavItems 
+  // Update navigation items logic
+  const navItems = shouldShowNavItems
     ? [
-        { title: 'Home', path: '/' },
-        { title: 'Features', path: '/features' },
-        { title: 'About', path: '/about' },
+        { title: "Home", path: "/" },
+        { title: "Features", path: "/features" },
+        { title: "About", path: "/about" },
       ]
     : [];
 
@@ -37,109 +41,106 @@ const Navbar = ({ userPool, isDarkMode, toggleDarkMode, className }) => {
     }
   };
 
-  const navLinkClass = isDarkMode
-    ? "text-gray-300 hover:text-white"
-    : "text-gray-600 hover:text-teal-600";
-
-  const buttonClass = isDarkMode
-    ? "bg-teal-600 hover:bg-teal-500 text-white"
-    : "bg-teal-500 hover:bg-teal-400 text-white";
-
-  const mobileMenuClass = isDarkMode
-    ? "bg-gray-900 border-t border-gray-800"
-    : "bg-white border-t border-gray-200";
-
   return (
     <nav
-      className={`${className} fixed w-full top-0 z-50 transition-colors duration-300 ${
-        isDarkMode
-          ? "bg-gray-900/95 text-white border-b border-gray-800"
-          : "bg-white/95 text-gray-800 border-b border-gray-200"
-      }`}
+      className={`
+      fixed top-0 left-0 right-0 z-50 
+      ${isDarkMode ? "bg-slate-900/95" : "bg-slate-50/95"}
+      backdrop-blur-md border-b
+      ${isDarkMode ? "border-slate-800" : "border-teal-200"}
+      transition-colors duration-300
+    `}
     >
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-16">
+          {/* Logo section */}
           <motion.div
             whileHover={{ scale: 1.05 }}
+            whileTap={{ scale: 0.95 }}
             className="flex-shrink-0"
           >
             <Link to={currentUser ? "/dashboard" : "/"}>
-              <img src={tikiLogo} alt="TikiTask Logo" className="h-12 w-auto" />
+              <img
+                src={tikiLogo}
+                alt="TikiTask Logo"
+                className={`w-auto ${isMobile ? "h-10" : "h-12"}`}
+              />
             </Link>
           </motion.div>
 
           {/* Desktop Navigation */}
-          <div className="hidden md:flex items-center space-x-8">
-            {navItems.map((item) => (
-              <motion.div
-                key={item.path}
-                whileHover={{ scale: 1.1 }}
-                whileTap={{ scale: 0.95 }}
-              >
+          <div className="hidden md:flex items-center space-x-6">
+            {shouldShowNavItems &&
+              navItems.map((item) => (
                 <Link
+                  key={item.path}
                   to={item.path}
-                  className={`text-sm font-medium ${navLinkClass} transition-colors ${
-                    location.pathname === item.path ? "text-teal-200" : ""
-                  }`}
+                  className={`
+                  font-medium transition-colors duration-200
+                  ${
+                    isDarkMode
+                      ? "text-slate-300 hover:text-white"
+                      : "text-slate-600 hover:text-slate-900"
+                  }
+                `}
                 >
                   {item.title}
                 </Link>
-              </motion.div>
-            ))}
-          </div>
+              ))}
 
-          {/* Right side items */}
-          <div className="hidden md:flex items-center space-x-4">
-            {/* Dark Mode Toggle */}
-            <motion.div
-              whileTap={{ scale: 0.95 }}
-              className="relative inline-block w-12 h-6 cursor-pointer"
-              onClick={toggleDarkMode}
-            >
-              <div
-                className={`w-full h-full rounded-full transition-colors duration-300 ${
-                  isDarkMode ? "bg-teal-500" : "bg-teal-200"
-                }`}
-              >
-                <motion.div
-                  className="absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white"
-                  animate={{
-                    x: isDarkMode ? 24 : 0,
-                  }}
-                  transition={{ type: "spring", stiffness: 500, damping: 30 }}
-                />
-              </div>
-            </motion.div>
-
-            {/* Auth Button */}
-            <motion.div
+            <motion.button
               whileHover={{ scale: 1.05 }}
               whileTap={{ scale: 0.95 }}
+              onClick={toggleDarkMode}
+              className={`
+                p-2 rounded-lg
+                ${isDarkMode ? "hover:bg-slate-800" : "hover:bg-slate-100"}
+                transition-colors duration-200
+              `}
+              aria-label="Toggle dark mode"
             >
-              {currentUser ? (
-                <button
-                  onClick={signOut}
-                  className={`px-4 py-2 rounded-lg ${buttonClass} 
-                           font-medium transition-colors duration-300`}
-                >
-                  Sign Out
-                </button>
+              {isDarkMode ? (
+                <FaMoon
+                  className={`w-5 h-5 ${
+                    isDarkMode ? "text-slate-400" : "text-slate-600"
+                  }`}
+                />
               ) : (
-                <Link to="/login">
-                  <button className={`px-4 py-2 rounded-lg ${buttonClass} 
-                                   font-medium transition-colors duration-300`}>
-                    Login Here
-                  </button>
-                </Link>
+                <FaSun
+                  className={`w-5 h-5 ${
+                    isDarkMode ? "text-slate-400" : "text-slate-600"
+                  }`}
+                />
               )}
-            </motion.div>
+            </motion.button>
+
+            {currentUser ? (
+              <motion.button
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
+                onClick={signOut}
+                className="px-4 py-2 rounded-lg font-medium bg-red-500 hover:bg-red-600 text-white"
+              >
+                Sign Out
+              </motion.button>
+            ) : (
+              <Link to="/login">
+                <motion.button
+                  whileHover={{ scale: 1.05 }}
+                  whileTap={{ scale: 0.95 }}
+                  className="px-4 py-2 rounded-lg font-medium bg-teal-500 hover:bg-teal-600 text-white"
+                >
+                  Sign In
+                </motion.button>
+              </Link>
+            )}
           </div>
 
           {/* Mobile menu button */}
-          {shouldShowNavItems && (
+          <div className="md:hidden">
             <motion.button
               whileTap={{ scale: 0.95 }}
-              className="md:hidden inline-flex items-center justify-center p-2 rounded-md hover:text-teal-200"
+              className="inline-flex items-center justify-center p-2 rounded-md hover:text-teal-200"
               onClick={() => setIsMenuOpen(!isMenuOpen)}
             >
               <svg
@@ -165,50 +166,105 @@ const Navbar = ({ userPool, isDarkMode, toggleDarkMode, className }) => {
                 )}
               </svg>
             </motion.button>
-          )}
+          </div>
         </div>
       </div>
 
       {/* Mobile menu */}
       <AnimatePresence>
-        {isMenuOpen && shouldShowNavItems && (
+        {isMenuOpen && (
           <motion.div
             initial={{ opacity: 0, height: 0 }}
             animate={{ opacity: 1, height: "auto" }}
             exit={{ opacity: 0, height: 0 }}
-            className={`md:hidden ${mobileMenuClass}`}
+            className={`
+              md:hidden border-t
+              ${
+                isDarkMode
+                  ? "bg-slate-900 border-slate-800"
+                  : "bg-white border-slate-200"
+              }
+            `}
           >
-            <div className="px-2 pt-2 pb-3 space-y-1 sm:px-3">
-              {navItems.map((item) => (
-                <Link
-                  key={item.path}
-                  to={item.path}
-                  className="block px-3 py-2 rounded-md text-base font-medium hover:bg-teal-500 transition-colors"
-                  onClick={() => setIsMenuOpen(false)}
-                >
-                  {item.title}
-                </Link>
-              ))}
-              {/* Mobile auth button */}
-              {currentUser ? (
-                <button
-                  onClick={() => {
-                    signOut();
-                    setIsMenuOpen(false);
-                  }}
-                  className="w-full text-left px-3 py-2 rounded-md text-base font-medium hover:bg-teal-500 transition-colors"
-                >
-                  Sign Out
-                </button>
-              ) : (
-                <Link
-                  to="/login"
-                  className="block px-3 py-2 rounded-md text-base font-medium hover:bg-teal-500 transition-colors"
-                  onClick={() => setIsMenuOpen(false)}
-                >
-                  Login Here
-                </Link>
-              )}
+            <div className="px-4 py-2 space-y-2">
+              {/* Show nav items only when not on dashboard */}
+              {shouldShowNavItems &&
+                navItems.map((item) => (
+                  <Link
+                    key={item.path}
+                    to={item.path}
+                    className={`
+                    block py-3 px-4 rounded-lg text-lg font-medium
+                    ${
+                      isDarkMode
+                        ? "text-slate-300 hover:text-white hover:bg-slate-800"
+                        : "text-slate-600 hover:text-slate-900 hover:bg-slate-100"
+                    }
+                    transition-colors duration-200
+                  `}
+                    onClick={() => setIsMenuOpen(false)}
+                  >
+                    {item.title}
+                  </Link>
+                ))}
+
+              {/* Always show these items on mobile */}
+              <div className="py-3 px-4 space-y-4">
+                {/* Dark mode toggle */}
+                <div className="flex items-center justify-between">
+                  <span
+                    className={`text-base font-medium ${
+                      isDarkMode ? "text-slate-300" : "text-slate-600"
+                    }`}
+                  >
+                    Dark Mode
+                  </span>
+                  <motion.div
+                    whileTap={{ scale: 0.95 }}
+                    onClick={toggleDarkMode}
+                    className="relative inline-block w-12 h-6 cursor-pointer"
+                  >
+                    <div
+                      className={`w-full h-full rounded-full transition-colors duration-300 ${
+                        isDarkMode ? "bg-slate-600" : "bg-slate-200"
+                      }`}
+                    >
+                      <motion.div
+                        className="absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white"
+                        animate={{
+                          x: isDarkMode ? 24 : 0,
+                        }}
+                        transition={{
+                          type: "spring",
+                          stiffness: 500,
+                          damping: 30,
+                        }}
+                      />
+                    </div>
+                  </motion.div>
+                </div>
+
+                {/* Auth button */}
+                {currentUser ? (
+                  <button
+                    onClick={() => {
+                      signOut();
+                      setIsMenuOpen(false);
+                    }}
+                    className="w-full text-left px-3 py-2 rounded-md text-base font-medium bg-teal-500 text-white hover:bg-teal-600 transition-colors"
+                  >
+                    Sign Out
+                  </button>
+                ) : (
+                  <Link
+                    to="/login"
+                    className="block px-3 py-2 rounded-md text-base font-medium bg-teal-500 text-white hover:bg-teal-600 transition-colors"
+                    onClick={() => setIsMenuOpen(false)}
+                  >
+                    Login Here
+                  </Link>
+                )}
+              </div>
             </div>
           </motion.div>
         )}

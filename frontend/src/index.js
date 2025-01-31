@@ -7,13 +7,13 @@ import { CognitoUserPool } from "amazon-cognito-identity-js";
 
 // Cognito Configuration
 const poolData = {
-  UserPoolId: "us-east-1_IeuK7i3zR", // Your Cognito User Pool ID
-  ClientId: "7kqvj4ovjqaucsq75ekphqdei5", // Your Cognito App Client ID
+  UserPoolId: "us-east-1_IeuK7i3zR",
+  ClientId: "7kqvj4ovjqaucsq75ekphqdei5", 
 };
 
 const userPool = new CognitoUserPool(poolData);
 
-// Set AWS Region (Optional)
+// Set AWS Region
 AWS.config.update({ region: "us-east-1" });
 
 const root = ReactDOM.createRoot(document.getElementById("root"));
